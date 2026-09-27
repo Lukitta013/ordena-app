@@ -1,0 +1,10 @@
+{
+  "description": "This interactive web application simulates an Android smartphone, enabling users to manage tasks, track productivity, and collaborate effectively with integrated features.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

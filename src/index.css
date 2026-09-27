@@ -1,0 +1,89 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import 'tailwindcss';
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--text);
+  --color-primary: var(--accent);
+  --color-primary-foreground: #FFFFFF;
+  --color-muted: var(--sunken);
+  --color-muted-foreground: var(--sub);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+}
+
+/* ── Light theme ─────────────────────────────────────────────── */
+:root {
+  --bg:       #F2F5F9;
+  --surface:  #FFFFFF;
+  --elevated: #FFFFFF;
+  --sunken:   #E9EEF4;
+  --border:   #DEE5ED;
+  --text:     #121821;
+  --sub:      #566273;
+  --tertiary: #8492A3;
+  --accent:   #2A50C0;
+  --critical: #C0413C;
+  --warning:  #A8751A;
+  --success:  #2C7A5A;
+
+  /* legacy compat */
+  --background: #F2F5F9;
+  --foreground: #121821;
+  --card: #FFFFFF;
+  --card-foreground: #121821;
+  --primary: #2A50C0;
+  --primary-foreground: #FFFFFF;
+  --muted: #E9EEF4;
+  --muted-foreground: #566273;
+  --border-color: #DEE5ED;
+  --radius: 0.75rem;
+}
+
+/* ── Dark theme ──────────────────────────────────────────────── */
+.dark {
+  --bg:       #0E131C;
+  --surface:  #151C27;
+  --elevated: #1C2533;
+  --sunken:   #111722;
+  --border:   #273140;
+  --text:     #E7ECF3;
+  --sub:      #93A0B1;
+  --tertiary: #63707F;
+  --accent:   #4C77E8;
+  --critical: #E4706A;
+  --warning:  #D5A03C;
+  --success:  #4FAF83;
+
+  /* legacy compat */
+  --background: #0E131C;
+  --foreground: #E7ECF3;
+  --card: #151C27;
+  --card-foreground: #E7ECF3;
+  --primary: #4C77E8;
+  --primary-foreground: #FFFFFF;
+  --muted: #1C2533;
+  --muted-foreground: #93A0B1;
+  --border-color: #273140;
+}
+
+/* ── Typography ──────────────────────────────────────────────── */
+* {
+  font-family: 'Instrument Sans', sans-serif;
+}
+.font-mono, code, kbd, pre {
+  font-family: 'IBM Plex Mono', monospace;
+}
+.font-serif {
+  font-family: 'Instrument Serif', serif;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
