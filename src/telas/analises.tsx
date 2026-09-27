@@ -14,26 +14,10 @@ import {
   TASKS, TEAM_MEMBERS, JSON_RULES, OKRS,
 } from "../mock/mockData";
 
-type Theme = "dark" | "light";
 
-const SECTIONS = [
-  { id: "bi", label: "BI Dashboard", icon: BarChart2, color: "text-indigo-400" },
-  { id: "gantt", label: "Gantt", icon: TrendingUp, color: "text-blue-400" },
-  { id: "telemetry", label: "Telemetria", icon: Zap, color: "text-amber-400" },
-  { id: "predict", label: "Previsão", icon: TrendingUp, color: "text-emerald-400" },
-  { id: "capacity", label: "Capacidade", icon: Users, color: "text-pink-400" },
-  { id: "lock", label: "Lock Otimista", icon: Lock, color: "text-rose-400" },
-  { id: "webrtc", label: "WebRTC", icon: Video, color: "text-violet-400" },
-  { id: "burnout", label: "Burnout", icon: Coffee, color: "text-orange-400" },
-  { id: "backup", label: "Backup & PDF", icon: Download, color: "text-cyan-400" },
-  { id: "okr", label: "OKRs", icon: Target, color: "text-emerald-400" },
-  { id: "gov", label: "Governança", icon: Shield, color: "text-slate-400" },
-  { id: "rules", label: "Regras JSON", icon: Code2, color: "text-teal-400" },
-  { id: "daily", label: "Fechamento D+1", icon: Moon, color: "text-indigo-400" },
-];
 
 // ── BI Dashboard ──────────────────────────────────────────────────
-function BiSection({ isDark }: { isDark: boolean }) {
+export function BiSection({ isDark }: { isDark: boolean }) {
   const text = isDark ? "text-slate-100" : "text-slate-900";
   const sub = isDark ? "text-slate-400" : "text-slate-500";
   const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
@@ -89,7 +73,7 @@ function BiSection({ isDark }: { isDark: boolean }) {
 }
 
 // ── Gantt ─────────────────────────────────────────────────────────
-function GanttSection({ isDark }: { isDark: boolean }) {
+export function GanttSection({ isDark }: { isDark: boolean }) {
   const text = isDark ? "text-slate-100" : "text-slate-900";
   const sub = isDark ? "text-slate-400" : "text-slate-500";
   const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
@@ -155,7 +139,7 @@ function GanttSection({ isDark }: { isDark: boolean }) {
 }
 
 // ── Telemetry ─────────────────────────────────────────────────────
-function TelemetrySection({ isDark }: { isDark: boolean }) {
+export function TelemetrySection({ isDark }: { isDark: boolean }) {
   const [running, setRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const ref = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -248,7 +232,7 @@ function TelemetrySection({ isDark }: { isDark: boolean }) {
 }
 
 // ── Predictive ────────────────────────────────────────────────────
-function PredictSection({ isDark }: { isDark: boolean }) {
+export function PredictSection({ isDark }: { isDark: boolean }) {
   const text = isDark ? "text-slate-100" : "text-slate-900";
   const sub = isDark ? "text-slate-400" : "text-slate-500";
   const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
@@ -299,7 +283,7 @@ function PredictSection({ isDark }: { isDark: boolean }) {
 }
 
 // ── Capacity ──────────────────────────────────────────────────────
-function CapacitySection({ isDark }: { isDark: boolean }) {
+export function CapacitySection({ isDark }: { isDark: boolean }) {
   const [delegated, setDelegated] = useState(false);
   const text = isDark ? "text-slate-100" : "text-slate-900";
   const sub = isDark ? "text-slate-400" : "text-slate-500";
@@ -356,7 +340,7 @@ function CapacitySection({ isDark }: { isDark: boolean }) {
 }
 
 // ── Optimistic Lock ────────────────────────────────────────────────
-function LockSection({ isDark }: { isDark: boolean }) {
+export function LockSection({ isDark }: { isDark: boolean }) {
   const [showConflict, setShowConflict] = useState(true);
   const text = isDark ? "text-slate-100" : "text-slate-900";
   const sub = isDark ? "text-slate-400" : "text-slate-500";
@@ -406,7 +390,7 @@ function LockSection({ isDark }: { isDark: boolean }) {
 }
 
 // ── WebRTC ────────────────────────────────────────────────────────
-function WebRTCSection({ isDark }: { isDark: boolean }) {
+export function WebRTCSection({ isDark }: { isDark: boolean }) {
   const [inCall, setInCall] = useState(false);
   const [muted, setMuted] = useState(false);
   const [camOff, setCamOff] = useState(false);
@@ -521,7 +505,7 @@ function WebRTCSection({ isDark }: { isDark: boolean }) {
 
 
 // ── Burnout ───────────────────────────────────────────────────────
-function BurnoutSection({ isDark }: { isDark: boolean }) {
+export function BurnoutSection({ isDark }: { isDark: boolean }) {
   const text = isDark ? "text-slate-100" : "text-slate-900";
   const sub = isDark ? "text-slate-400" : "text-slate-500";
   const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
@@ -605,7 +589,7 @@ function BurnoutSection({ isDark }: { isDark: boolean }) {
 }
 
 // ── Backup & PDF ──────────────────────────────────────────────────
-function BackupSection({ isDark }: { isDark: boolean }) {
+export function BackupSection({ isDark }: { isDark: boolean }) {
   const [backing, setBacking] = useState(false);
   const [done, setDone] = useState(false);
   const [showPdf, setShowPdf] = useState(false);
@@ -687,7 +671,7 @@ function BackupSection({ isDark }: { isDark: boolean }) {
 }
 
 // ── OKRs ──────────────────────────────────────────────────────────
-function OkrSection({ isDark }: { isDark: boolean }) {
+export function OkrSection({ isDark }: { isDark: boolean }) {
   const text = isDark ? "text-slate-100" : "text-slate-900";
   const sub = isDark ? "text-slate-400" : "text-slate-500";
   const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
@@ -739,7 +723,7 @@ function OkrSection({ isDark }: { isDark: boolean }) {
 }
 
 // ── Governance ────────────────────────────────────────────────────
-function GovSection({ isDark }: { isDark: boolean }) {
+export function GovSection({ isDark }: { isDark: boolean }) {
   const text = isDark ? "text-slate-100" : "text-slate-900";
   const sub = isDark ? "text-slate-400" : "text-slate-500";
   const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
@@ -801,7 +785,7 @@ function GovSection({ isDark }: { isDark: boolean }) {
 }
 
 // ── JSON Rules ────────────────────────────────────────────────────
-function RulesSection({ isDark }: { isDark: boolean }) {
+export function RulesSection({ isDark }: { isDark: boolean }) {
   const [rules, setRules] = useState(JSON_RULES);
   const text = isDark ? "text-slate-100" : "text-slate-900";
   const sub = isDark ? "text-slate-400" : "text-slate-500";
@@ -857,7 +841,7 @@ function RulesSection({ isDark }: { isDark: boolean }) {
 }
 
 // ── Daily Close ───────────────────────────────────────────────────
-function DailySection({ isDark }: { isDark: boolean }) {
+export function DailySection({ isDark }: { isDark: boolean }) {
   const text = isDark ? "text-slate-100" : "text-slate-900";
   const sub = isDark ? "text-slate-400" : "text-slate-500";
   const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
@@ -916,69 +900,6 @@ function DailySection({ isDark }: { isDark: boolean }) {
             </div>
           ))}
         </div>
-      </div>
-    </div>
-  );
-}
-
-export default function Entrega3({ theme }: { theme: Theme }) {
-  const [activeSection, setActiveSection] = useState("bi");
-  const isDark = theme === "dark";
-  const bg = isDark ? "bg-slate-900" : "bg-slate-50";
-  const text = isDark ? "text-slate-100" : "text-slate-900";
-  const sub = isDark ? "text-slate-400" : "text-slate-500";
-  const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
-
-  const current = SECTIONS.find(s => s.id === activeSection)!;
-
-  return (
-    <div className={`min-h-full ${bg} pb-6`}>
-      <div className="px-4 pt-3 pb-3">
-        <p className={`text-xs ${sub}`}>Entrega 3 • AV3: 50%</p>
-        <h1 className={`text-lg font-bold ${text}`}>BI, Gantt & Colaboração</h1>
-        <p className={`text-xs ${sub} mt-0.5`}>US15 – US27 • 28 Itens do Backlog</p>
-      </div>
-
-      <div className="px-4 mb-3 overflow-x-auto scrollbar-hide">
-        <div className="flex gap-2 pb-1">
-          {SECTIONS.map(s => {
-            const Icon = s.icon;
-            return (
-              <button key={s.id} onClick={() => setActiveSection(s.id)}
-                className={`flex-none flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-xs transition-all ${
-                  activeSection === s.id
-                    ? "bg-indigo-500 border-indigo-500 text-white"
-                    : isDark ? `border-slate-700 ${s.color} hover:border-slate-600` : `border-slate-200 ${s.color}`
-                }`}>
-                <Icon size={11} />
-                <span className="whitespace-nowrap">{s.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="px-4 mb-3">
-        <div className={`${card} border rounded-xl px-3 py-2 flex items-center gap-2`}>
-          {(() => { const Icon = current.icon; return <Icon size={14} className={current.color} />; })()}
-          <span className={`text-xs font-semibold ${text}`}>{current.label}</span>
-        </div>
-      </div>
-
-      <div className="px-4">
-        {activeSection === "bi" && <BiSection isDark={isDark} />}
-        {activeSection === "gantt" && <GanttSection isDark={isDark} />}
-        {activeSection === "telemetry" && <TelemetrySection isDark={isDark} />}
-        {activeSection === "predict" && <PredictSection isDark={isDark} />}
-        {activeSection === "capacity" && <CapacitySection isDark={isDark} />}
-        {activeSection === "lock" && <LockSection isDark={isDark} />}
-        {activeSection === "webrtc" && <WebRTCSection isDark={isDark} />}
-        {activeSection === "burnout" && <BurnoutSection isDark={isDark} />}
-        {activeSection === "backup" && <BackupSection isDark={isDark} />}
-        {activeSection === "okr" && <OkrSection isDark={isDark} />}
-        {activeSection === "gov" && <GovSection isDark={isDark} />}
-        {activeSection === "rules" && <RulesSection isDark={isDark} />}
-        {activeSection === "daily" && <DailySection isDark={isDark} />}
       </div>
     </div>
   );

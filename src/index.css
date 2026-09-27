@@ -1,6 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif&family=IBM+Plex+Mono:wght@400;500&display=swap');
 @import 'tailwindcss';
 
+/* dark: segue a classe .dark do tema do app, não só a preferência do sistema */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme inline {
   --color-background: var(--bg);
   --color-foreground: var(--text);

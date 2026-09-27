@@ -5,13 +5,20 @@ import {
   ArrowLeft, Bell, Plus, LogOut, User,
   MapPin, Repeat, AlertCircle, Link2, Cpu,
   TrendingUp, Clock, Heart, Target, Shield,
-  RefreshCw, HardDrive, Wrench,
+  RefreshCw, HardDrive, Wrench, Lock, Copy, Mic, Search, Users, Video, Moon as MoonIcon,
 } from "lucide-react";
-import Entrega1 from "./entrega1";
-import Entrega2 from "./entrega2";
-import Entrega3 from "./entrega3";
-import AuthFlow from "./auth";
-import { PROJECT_COLORS } from "./entrega1/context/TaskContext";
+import TarefasHome from "./telas/tarefas";
+import { TaskProvider } from "./telas/tarefas/context/TaskContext";
+import AuthFlow from "./telas/login";
+import {
+  GpsSection, DepsSection, DupSection, CalSection, AudioSection,
+  AlertsSection, SearchSection, RecurSection, AssignSection,
+} from "./telas/agenda";
+import {
+  BiSection, GanttSection, TelemetrySection, PredictSection, CapacitySection,
+  LockSection, WebRTCSection, BurnoutSection, BackupSection, OkrSection,
+  GovSection, RulesSection, DailySection,
+} from "./telas/analises";
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -25,11 +32,15 @@ function useTheme() {
     (localStorage.getItem("ordena-theme-mode") as ThemeMode) ?? "system"
   );
 
-  const resolved = useMemo<"light" | "dark">(() => {
-    if (mode === "system")
-      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    return mode;
-  }, [mode]);
+  const media = useMemo(() => window.matchMedia("(prefers-color-scheme: dark)"), []);
+  const [systemDark, setSystemDark] = useState(media.matches);
+  useEffect(() => {
+    const onChange = (e: MediaQueryListEvent) => setSystemDark(e.matches);
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, [media]);
+
+  const resolved: "light" | "dark" = mode === "system" ? (systemDark ? "dark" : "light") : mode;
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", resolved === "dark");
@@ -119,6 +130,51 @@ function BackHeader({ title, onBack, usCodes, showUS }: {
   );
 }
 
+// ── Sub-páginas: cada linha de menu abre exatamente uma seção ─────
+
+const PAGES: Record<string, { title: string; us: string; C: React.ComponentType<{ isDark: boolean }> }> = {
+  // Projetos
+  gantt:       { title: "Cronograma Gantt",          us: "US22",      C: GanttSection },
+  projecoes:   { title: "Projeções",                 us: "US23",      C: PredictSection },
+  capacidade:  { title: "Capacidade da Equipe",      us: "US24",      C: CapacitySection },
+  dependencias:{ title: "Dependências",              us: "US07",      C: DepsSection },
+  templates:   { title: "Duplicação e Templates",    us: "US08",      C: DupSection },
+  atribuicao:  { title: "Atribuição e Conflitos",    us: "US14",      C: AssignSection },
+  comentarios: { title: "Comentários e Áudio",       us: "US10",      C: AudioSection },
+  lock:        { title: "Edição Simultânea",         us: "US20",      C: LockSection },
+  webrtc:      { title: "Chamada de Vídeo",          us: "US21",      C: WebRTCSection },
+  // Agenda
+  recorrencia: { title: "Tarefas Recorrentes",       us: "US14",      C: RecurSection },
+  geofencing:  { title: "Lembretes por Local",       us: "US09",      C: GpsSection },
+  alertas:     { title: "Alertas de Prazo",          us: "US15",      C: AlertsSection },
+  integracoes: { title: "Integrações",               us: "US10–US13", C: CalSection },
+  busca:       { title: "Busca e Auditoria",         us: "US12",      C: SearchSection },
+  // Análises
+  avancado:    { title: "Painel de Produtividade",   us: "US22",      C: BiSection },
+  tempo:       { title: "Tempo e Estimativas",       us: "US16",      C: TelemetrySection },
+  "bem-estar": { title: "Bem-estar e Carga Diária",  us: "US26",      C: BurnoutSection },
+  metas:       { title: "Metas e Revisões",          us: "US27",      C: OkrSection },
+  fechamento:  { title: "Fechamento Diário (D+1)",   us: "US27",      C: DailySection },
+  // Ajustes
+  automacoes:  { title: "Automações",                us: "US26",      C: RulesSection },
+  backup:      { title: "Backup e Exportação",       us: "US23",      C: BackupSection },
+  admin:       { title: "Administração e Permissões",us: "US25",      C: GovSection },
+};
+
+function SubPageView({ id, theme, showUS, onBack }: {
+  id: string; theme: "dark" | "light"; showUS: boolean; onBack: () => void;
+}) {
+  const { title, us, C } = PAGES[id];
+  return (
+    <div className="flex flex-col h-full" style={{ background: "var(--bg)" }}>
+      <BackHeader title={title} usCodes={us} showUS={showUS} onBack={onBack} />
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        <C isDark={theme === "dark"} />
+      </div>
+    </div>
+  );
+}
+
 // ── ── SCREENS ── ────────────────────────────────────────────────
 
 // ── TarefasScreen ─────────────────────────────────────────────────
@@ -131,7 +187,7 @@ function TarefasScreen({
 }) {
   return (
     <div className="h-full">
-      <Entrega1 theme={theme} toggleTheme={() => {}} />
+      <TarefasHome theme={theme} />
     </div>
   );
 }
@@ -157,26 +213,7 @@ function ProjetosScreen({
 }) {
   const [subPage, setSubPage] = useState<string | null>(null);
 
-  if (subPage === "gantt" || subPage === "projecoes" || subPage === "capacidade" || subPage === "admin") {
-    return (
-      <div className="flex flex-col h-full" style={{ background: "var(--bg)" }}>
-        <BackHeader
-          title={
-            subPage === "gantt" ? "Cronograma Gantt"
-            : subPage === "projecoes" ? "Projeções"
-            : subPage === "capacidade" ? "Capacidade da Equipe"
-            : "Administração"
-          }
-          usCodes={subPage === "gantt" ? "US22" : subPage === "projecoes" ? "US23" : subPage === "capacidade" ? "US24" : "US25"}
-          showUS={showUS}
-          onBack={() => setSubPage(null)}
-        />
-        <div className="flex-1 overflow-y-auto">
-          <Entrega3 theme={theme} />
-        </div>
-      </div>
-    );
-  }
+  if (subPage) return <SubPageView id={subPage} theme={theme} showUS={showUS} onBack={() => setSubPage(null)} />;
 
   return (
     <div className="h-full overflow-y-auto scrollbar-hide pb-6" style={{ background: "var(--bg)" }}>
@@ -209,6 +246,18 @@ function ProjetosScreen({
         <SectionRow icon={TrendingUp} label="Projeções" sub="Estimativas de conclusão" onPress={() => setSubPage("projecoes")} />
         <SectionRow icon={Cpu} label="Capacidade da Equipe" sub="Distribuição de carga" onPress={() => setSubPage("capacidade")} />
         <SectionRow icon={Shield} label="Administração e Permissões" sub="Membros e papéis" onPress={() => setSubPage("admin")} />
+      </Block>
+
+      <Block title="Organização">
+        <SectionRow icon={Lock} label="Dependências" sub="Bloqueio até concluir a anterior" onPress={() => setSubPage("dependencias")} />
+        <SectionRow icon={Copy} label="Duplicação e Templates" sub="Rotinas reutilizáveis" onPress={() => setSubPage("templates")} />
+        <SectionRow icon={Users} label="Atribuição e Conflitos" sub="Aceitar, recusar, reagendar" onPress={() => setSubPage("atribuicao")} />
+      </Block>
+
+      <Block title="Colaboração">
+        <SectionRow icon={Mic} label="Comentários e Áudio" sub="Anexos e gravações" onPress={() => setSubPage("comentarios")} />
+        <SectionRow icon={RefreshCw} label="Edição Simultânea" sub="Conflitos e histórico de escopo" onPress={() => setSubPage("lock")} />
+        <SectionRow icon={Video} label="Chamada de Vídeo" sub="Alinhamento rápido" onPress={() => setSubPage("webrtc")} />
       </Block>
     </div>
   );
@@ -265,31 +314,7 @@ function MiniCalendar({ isDark }: { isDark: boolean }) {
 function AgendaScreen({ theme, showUS }: { theme: "dark" | "light"; showUS: boolean }) {
   const [subPage, setSubPage] = useState<string | null>(null);
 
-  if (subPage) {
-    return (
-      <div className="flex flex-col h-full" style={{ background: "var(--bg)" }}>
-        <BackHeader
-          title={
-            subPage === "integracoes" ? "Integrações e Hardware"
-            : subPage === "recorrencia" ? "Tarefas Recorrentes"
-            : subPage === "geofencing" ? "Lembretes por Local"
-            : "Alertas de Prazo"
-          }
-          usCodes={
-            subPage === "integracoes" ? "US10–US13"
-            : subPage === "recorrencia" ? "US14"
-            : subPage === "geofencing" ? "US09"
-            : "US15"
-          }
-          showUS={showUS}
-          onBack={() => setSubPage(null)}
-        />
-        <div className="flex-1 overflow-y-auto">
-          <Entrega2 theme={theme} />
-        </div>
-      </div>
-    );
-  }
+  if (subPage) return <SubPageView id={subPage} theme={theme} showUS={showUS} onBack={() => setSubPage(null)} />;
 
   return (
     <div className="h-full overflow-y-auto scrollbar-hide pb-6" style={{ background: "var(--bg)" }}>
@@ -322,7 +347,8 @@ function AgendaScreen({ theme, showUS }: { theme: "dark" | "light"; showUS: bool
         <SectionRow icon={Repeat} label="Tarefas Recorrentes" sub="Diárias, semanais e mensais" onPress={() => setSubPage("recorrencia")} />
         <SectionRow icon={MapPin} label="Lembretes por Local" sub="Geofencing por proximidade" onPress={() => setSubPage("geofencing")} />
         <SectionRow icon={AlertCircle} label="Alertas de Prazo" sub="Notificações configuráveis" onPress={() => setSubPage("alertas")} />
-        <SectionRow icon={Link2} label="Integrações" sub="Google Calendar · E-mail · Backup" onPress={() => setSubPage("integracoes")} />
+        <SectionRow icon={Link2} label="Integrações" sub="Google Calendar" onPress={() => setSubPage("integracoes")} />
+        <SectionRow icon={Search} label="Busca e Auditoria" sub="Busca tolerante a erros e histórico" onPress={() => setSubPage("busca")} />
       </Block>
     </div>
   );
@@ -333,31 +359,7 @@ function AgendaScreen({ theme, showUS }: { theme: "dark" | "light"; showUS: bool
 function AnalisesScreen({ theme, showUS }: { theme: "dark" | "light"; showUS: boolean }) {
   const [subPage, setSubPage] = useState<string | null>(null);
 
-  if (subPage) {
-    return (
-      <div className="flex flex-col h-full" style={{ background: "var(--bg)" }}>
-        <BackHeader
-          title={
-            subPage === "comparativo" ? "Relatório Comparativo"
-            : subPage === "bem-estar" ? "Bem-estar e Carga Diária"
-            : subPage === "metas" ? "Metas e Revisões"
-            : "Análises Avançadas"
-          }
-          usCodes={
-            subPage === "comparativo" ? "US22–US24"
-            : subPage === "bem-estar" ? "US26"
-            : subPage === "metas" ? "US27"
-            : "US22–US27"
-          }
-          showUS={showUS}
-          onBack={() => setSubPage(null)}
-        />
-        <div className="flex-1 overflow-y-auto">
-          <Entrega3 theme={theme} />
-        </div>
-      </div>
-    );
-  }
+  if (subPage) return <SubPageView id={subPage} theme={theme} showUS={showUS} onBack={() => setSubPage(null)} />;
 
   return (
     <div className="h-full overflow-y-auto scrollbar-hide pb-6" style={{ background: "var(--bg)" }}>
@@ -394,17 +396,17 @@ function AnalisesScreen({ theme, showUS }: { theme: "dark" | "light"; showUS: bo
           onClick={() => setSubPage("avancado")}
           className="w-full flex items-center justify-between px-4 py-3"
         >
-          <p className="text-[13px]" style={{ color: "var(--sub)" }}>Gráficos, Gantt, WebRTC, Burnout e mais</p>
+          <p className="text-[13px]" style={{ color: "var(--sub)" }}>Conclusões por dia e comparação mensal</p>
           <ChevronRight size={16} style={{ color: "var(--border)" }} />
         </button>
       </div>
 
       {/* Aprofundar block */}
       <Block title="Aprofundar">
-        <SectionRow icon={TrendingUp} label="Relatório Comparativo" sub="Comparar períodos" onPress={() => setSubPage("comparativo")} />
         <SectionRow icon={Clock} label="Tempo e Estimativas" sub="Calibração de esforço" onPress={() => setSubPage("tempo")} />
         <SectionRow icon={Heart} label="Bem-estar e Carga Diária" sub="Burnout e pausas" onPress={() => setSubPage("bem-estar")} />
-        <SectionRow icon={Target} label="Metas e Revisões" sub="OKRs e fechamento D+1" onPress={() => setSubPage("metas")} />
+        <SectionRow icon={Target} label="Metas e Revisões" sub="OKRs e revisão por pares" onPress={() => setSubPage("metas")} />
+        <SectionRow icon={MoonIcon} label="Fechamento Diário" sub="Resumo do dia e plano D+1" onPress={() => setSubPage("fechamento")} />
       </Block>
     </div>
   );
@@ -427,6 +429,9 @@ function AjustesScreen({
     { key: "dark",   label: "Escuro",  Icon: Moon },
     { key: "system", label: "Sistema", Icon: Monitor },
   ];
+  const [subPage, setSubPage] = useState<string | null>(null);
+  if (subPage)
+    return <SubPageView id={subPage} theme={isDark ? "dark" : "light"} showUS={showUSMarkers} onBack={() => setSubPage(null)} />;
 
   return (
     <div className="h-full overflow-y-auto scrollbar-hide pb-8" style={{ background: "var(--bg)" }}>
@@ -520,14 +525,13 @@ function AjustesScreen({
       <Block title="Aplicativo">
         <SectionRow icon={Bell} label="Notificações" onPress={() => {}} />
         <SectionRow icon={RefreshCw} label="Sincronização e Offline" sub="SQLite · fila de sincronização" onPress={() => {}} />
-        <SectionRow icon={Wrench} label="Automações" sub="Regras e gatilhos" onPress={() => {}} />
-        <SectionRow icon={HardDrive} label="Backup e Exportação" sub="PDF · JSON · CSV" onPress={() => {}} />
+        <SectionRow icon={Wrench} label="Automações" sub="Regras e gatilhos" onPress={() => setSubPage("automacoes")} />
+        <SectionRow icon={HardDrive} label="Backup e Exportação" sub="Nuvem e relatório PDF" onPress={() => setSubPage("backup")} />
       </Block>
 
       {/* Segurança block */}
       <Block title="Segurança e Governança">
-        <SectionRow icon={User} label="Administração e Permissões" onPress={() => {}} />
-        <SectionRow icon={Shield} label="Auditoria de Acessos" sub="Histórico de atividades" onPress={() => {}} />
+        <SectionRow icon={User} label="Administração e Permissões" sub="Papéis e auditoria de acessos" onPress={() => setSubPage("admin")} />
       </Block>
 
       {/* Logout */}
@@ -647,7 +651,8 @@ function BottomNav({ active, onChange }: { active: NavTab; onChange: (t: NavTab)
 
 export default function App() {
   const { mode: themeMode, setMode: setThemeMode, isDark, theme } = useTheme();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => localStorage.getItem("ordena-auth") === "1");
+  useEffect(() => { localStorage.setItem("ordena-auth", isAuthenticated ? "1" : "0"); }, [isAuthenticated]);
   const [navTab, setNavTab] = useState<NavTab>("tarefas");
   const [showUSMarkers, setShowUSMarkers] = useState(true);
 
@@ -701,6 +706,8 @@ export default function App() {
   };
 
   return (
+    // TaskProvider fica aqui (e não dentro da aba Tarefas) para as tarefas não sumirem ao trocar de aba
+    <TaskProvider>
     <div
       className="flex h-screen"
       style={{ background: "var(--bg)" }}
@@ -720,5 +727,6 @@ export default function App() {
         <BottomNav active={navTab} onChange={handleNavChange} />
       </div>
     </div>
+    </TaskProvider>
   );
 }
