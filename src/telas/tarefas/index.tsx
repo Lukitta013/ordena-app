@@ -7,7 +7,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
-  TaskProvider, useTasks, deriveQuadrant, PROJECT_COLORS,
+  useTasks, deriveQuadrant, toLocalInput, PROJECT_COLORS,
   type AppTask, type Priority, type Status, type Project, type Quadrant,
 } from "./context/TaskContext";
 import { countLeaves, type AppSubtask } from "./utils/subtaskTree";
@@ -109,8 +109,9 @@ function fmtDue(iso: string): string {
   const diffH = (d.getTime() - now.getTime()) / 36e5;
   if (diffH < 0) return "Atrasada";
   const timeStr = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-  if (diffH < 24) return `Hoje, ${timeStr}`;
-  if (diffH < 48) return `Amanhã, ${timeStr}`;
+  const tomorrow = new Date(now.getTime() + 864e5);
+  if (d.toDateString() === now.toDateString()) return `Hoje, ${timeStr}`;
+  if (d.toDateString() === tomorrow.toDateString()) return `Amanhã, ${timeStr}`;
   return d.toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "short" });
 }
 
@@ -214,7 +215,7 @@ function SubtaskNode({
               onChange={e => setDraftTitle(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") { setDraftTitle(node.title); setEditingTitle(false); } }}
               onBlur={saveEdit}
-              className="flex-1 text-sm bg-transparent border-b border-[#4F6BED] outline-none min-w-0 text-slate-100"
+              className="flex-1 text-sm bg-transparent border-b border-[#4F6BED] outline-none min-w-0 text-slate-700 dark:text-slate-100"
             />
           ) : (
             <span
@@ -235,7 +236,8 @@ function SubtaskNode({
             <span className="text-[10px] text-slate-400 font-mono flex-none">({doneSub}/{totalSub})</span>
           )}
 
-          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-none">
+          {/* Em telas de toque não existe hover: os botões ficam sempre visíveis */}
+          <div className="flex items-center gap-0.5 [@media(hover:hover)]:opacity-0 group-hover:opacity-100 transition-opacity flex-none">
             {canNest && (
               <button
                 title="Adicionar subitem"
@@ -279,7 +281,7 @@ function SubtaskNode({
               onKeyDown={e => { if (e.key === "Enter") addChild(); if (e.key === "Escape") { setAddingChild(false); setChildInput(""); } }}
               onBlur={() => { if (!childInput.trim()) setAddingChild(false); else addChild(); }}
               placeholder="Nova subtarefa..."
-              className="flex-1 text-sm bg-transparent border-b border-dashed border-[#262B36] focus:border-[#4F6BED] outline-none text-[#E8EAED] placeholder-[#9AA0AC]"
+              className="flex-1 text-sm bg-transparent border-b border-dashed border-slate-300 dark:border-[#262B36] focus:border-[#4F6BED] outline-none text-slate-700 dark:text-[#E8EAED] placeholder-[#9AA0AC]"
             />
             <button onClick={addChild} className="flex-none p-1 bg-[#4F6BED]/10 text-[#4F6BED] rounded-lg hover:bg-[#4F6BED]/20 transition-colors">
               <Plus size={12} />
@@ -453,7 +455,7 @@ function TaskFormModal({ onClose, isDark }: { onClose: () => void; isDark: boole
     if (!form.title.trim()) return;
     createTask({
       ...form,
-      dueDate: form.dueDate || new Date(Date.now() + 7 * 864e5).toISOString(),
+      dueDate: form.dueDate || toLocalInput(new Date(Date.now() + 7 * 864e5)),
       quadrant: previewQ,
       subtasks: initSubs,
     });
@@ -596,8 +598,9 @@ function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDark: boo
   };
 
   const save = () => {
-    const q = deriveQuadrant(draft.priority, draft.dueDate);
-    updateTask(task.id, { ...draft, quadrant: q });
+    // Não regrava subtasks: elas podem ter mudado enquanto o modo de edição estava aberto
+    const { subtasks: _ignored, ...fields } = draft;
+    updateTask(task.id, { ...fields, quadrant: deriveQuadrant(draft.priority, draft.dueDate) });
     setIsEditing(false);
     setDirty(false);
   };
@@ -801,7 +804,7 @@ function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDark: boo
 
 // ── HomeScreen ────────────────────────────────────────────────────
 
-function HomeScreen({ theme, toggleTheme }: { theme: Theme; toggleTheme?: () => void }) {
+function HomeScreen({ theme }: { theme: Theme }) {
   const { tasks, syncQueue, simulateSync } = useTasks();
   const [search, setSearch] = useState("");
   const [activeQ, setActiveQ] = useState<"ALL" | Quadrant>("ALL");
@@ -1026,12 +1029,4 @@ function HomeScreen({ theme, toggleTheme }: { theme: Theme; toggleTheme?: () => 
   );
 }
 
-// ── Entry point ───────────────────────────────────────────────────
-
-export default function Entrega1({ theme, toggleTheme }: { theme: Theme; toggleTheme?: () => void }) {
-  return (
-    <TaskProvider>
-      <HomeScreen theme={theme} toggleTheme={toggleTheme} />
-    </TaskProvider>
-  );
-}
+export default HomeScreen;

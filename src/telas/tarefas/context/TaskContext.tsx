@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -67,16 +68,20 @@ export function deriveQuadrant(priority: Priority, dueDate: string): Quadrant {
   const now = new Date();
   const due = new Date(dueDate);
   const hoursUntil = (due.getTime() - now.getTime()) / 36e5;
-  if (priority === "Alta" && hoursUntil <= 24) return "Q1";
-  if ((priority === "Alta" || priority === "Média") && hoursUntil > 24) return "Q2";
-  if (priority === "Baixa" && hoursUntil <= 24) return "Q3";
-  return "Q4";
+  const important = priority !== "Baixa";
+  const urgent = hoursUntil <= 24;
+  if (important) return urgent ? "Q1" : "Q2";
+  return urgent ? "Q3" : "Q4";
 }
 
 // ── Seed data ─────────────────────────────────────────────────────
 
+// Formato do <input type="datetime-local"> no fuso local (toISOString usaria UTC)
+export const toLocalInput = (d: Date) =>
+  new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 16);
+
 const TODAY = new Date();
-const fmt = (d: Date) => d.toISOString().slice(0, 16);
+const fmt = toLocalInput;
 const addH = (h: number) => fmt(new Date(TODAY.getTime() + h * 36e5));
 const addD = (d: number) => fmt(new Date(TODAY.getTime() + d * 864e5));
 
@@ -290,22 +295,21 @@ export function useTasks() {
 export function TaskProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<AppTask[]>(SEED);
   const [toast, setToast] = useState<ToastMsg | null>(null);
-  const [toastTimer, setToastTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const syncQueue = tasks.filter(t => t.syncPending).length;
 
   const showToast = useCallback((text: string, undoTask?: AppTask) => {
     const id = genId();
     setToast({ id, text, undoTask });
-    if (toastTimer) clearTimeout(toastTimer);
-    const t = setTimeout(() => setToast(null), 5000);
-    setToastTimer(t);
-  }, [toastTimer]);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 5000);
+  }, []);
 
   const dismissToast = useCallback(() => {
     setToast(null);
-    if (toastTimer) clearTimeout(toastTimer);
-  }, [toastTimer]);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+  }, []);
 
   const markSync = (id: string) =>
     setTasks(prev => prev.map(t => t.id === id ? { ...t, syncPending: true, updatedAt: new Date().toISOString() } : t));

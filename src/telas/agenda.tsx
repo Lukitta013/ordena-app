@@ -7,26 +7,15 @@ import {
 } from "lucide-react";
 import { TASKS, CALENDAR_EVENTS, AUDIT_LOG, TEAM_MEMBERS, TEMPLATES } from "../mock/mockData";
 
-type Theme = "dark" | "light";
 
-const SECTIONS = [
-  { id: "gps", label: "GPS & Geofencing", icon: MapPin, color: "text-emerald-400" },
-  { id: "deps", label: "Dependências", icon: Lock, color: "text-rose-400" },
-  { id: "dup", label: "Duplicação & Templates", icon: Copy, color: "text-amber-400" },
-  { id: "cal", label: "Calendário", icon: Calendar, color: "text-blue-400" },
-  { id: "audio", label: "Mídia & Áudio", icon: Mic, color: "text-violet-400" },
-  { id: "alerts", label: "Alertas de Prazo", icon: Bell, color: "text-orange-400" },
-  { id: "search", label: "Busca & Auditoria", icon: Search, color: "text-cyan-400" },
-  { id: "recur", label: "Recorrência & E-mail", icon: Repeat, color: "text-indigo-400" },
-  { id: "assign", label: "Atribuição & Conflitos", icon: Users, color: "text-pink-400" },
-];
 
 // ── GPS & Geofencing ──────────────────────────────────────────────
-function GpsSection({ isDark }: { isDark: boolean }) {
+export function GpsSection({ isDark }: { isDark: boolean }) {
   const [simulating, setSimulating] = useState(false);
   const [distance, setDistance] = useState(450);
   const [notif, setNotif] = useState(false);
   const [timerRef] = useState<{ id: ReturnType<typeof setInterval> | null }>({ id: null });
+  useEffect(() => () => { if (timerRef.id) clearInterval(timerRef.id); }, [timerRef]);
 
   const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
   const text = isDark ? "text-slate-100" : "text-slate-900";
@@ -154,7 +143,7 @@ function GpsSection({ isDark }: { isDark: boolean }) {
 }
 
 // ── Dependencies ──────────────────────────────────────────────────
-function DepsSection({ isDark }: { isDark: boolean }) {
+export function DepsSection({ isDark }: { isDark: boolean }) {
   const [blocked, setBlocked] = useState<string | null>(null);
   const [showBlock, setShowBlock] = useState(false);
 
@@ -248,7 +237,7 @@ function DepsSection({ isDark }: { isDark: boolean }) {
 }
 
 // ── Duplication & Templates ───────────────────────────────────────
-function DupSection({ isDark }: { isDark: boolean }) {
+export function DupSection({ isDark }: { isDark: boolean }) {
   const [duplicated, setDuplicated] = useState<string | null>(null);
   const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
   const text = isDark ? "text-slate-100" : "text-slate-900";
@@ -306,7 +295,7 @@ function DupSection({ isDark }: { isDark: boolean }) {
 }
 
 // ── Calendar ──────────────────────────────────────────────────────
-function CalSection({ isDark }: { isDark: boolean }) {
+export function CalSection({ isDark }: { isDark: boolean }) {
   const [syncing, setSyncing] = useState(false);
   const [syncActive, setSyncActive] = useState(true);
   const [lastSync] = useState("12/09/2025 às 08:34");
@@ -363,13 +352,14 @@ function CalSection({ isDark }: { isDark: boolean }) {
 }
 
 // ── Audio & Media ─────────────────────────────────────────────────
-function AudioSection({ isDark }: { isDark: boolean }) {
+export function AudioSection({ isDark }: { isDark: boolean }) {
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [saved, setSaved] = useState(false);
   const [playing, setPlaying] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [waveKeys, setWaveKeys] = useState([...Array(20)].map(() => Math.random()));
+  useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current); }, []);
 
   const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
   const text = isDark ? "text-slate-100" : "text-slate-900";
@@ -496,7 +486,7 @@ function AudioSection({ isDark }: { isDark: boolean }) {
 }
 
 // ── Deadline Alerts ───────────────────────────────────────────────
-function AlertsSection({ isDark }: { isDark: boolean }) {
+export function AlertsSection({ isDark }: { isDark: boolean }) {
   const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
   const text = isDark ? "text-slate-100" : "text-slate-900";
   const urgencyLevels = [
@@ -554,7 +544,7 @@ function AlertsSection({ isDark }: { isDark: boolean }) {
 }
 
 // ── Search & Audit ────────────────────────────────────────────────
-function SearchSection({ isDark }: { isDark: boolean }) {
+export function SearchSection({ isDark }: { isDark: boolean }) {
   const [q, setQ] = useState("");
   const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
   const text = isDark ? "text-slate-100" : "text-slate-900";
@@ -626,7 +616,7 @@ function SearchSection({ isDark }: { isDark: boolean }) {
 }
 
 // ── Recurrence & Email ────────────────────────────────────────────
-function RecurSection({ isDark }: { isDark: boolean }) {
+export function RecurSection({ isDark }: { isDark: boolean }) {
   const [period, setPeriod] = useState("Semanal");
   const [stopAfter, setStopAfter] = useState("12");
   const [converted, setConverted] = useState(false);
@@ -697,7 +687,7 @@ function RecurSection({ isDark }: { isDark: boolean }) {
 }
 
 // ── Assignment & Conflicts ────────────────────────────────────────
-function AssignSection({ isDark }: { isDark: boolean }) {
+export function AssignSection({ isDark }: { isDark: boolean }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [response, setResponse] = useState<Record<string, string>>({});
   const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
@@ -763,72 +753,6 @@ function AssignSection({ isDark }: { isDark: boolean }) {
             {response[selected] === "accepted" ? "Tarefa aceita pelo colaborador." : response[selected] === "refused" ? "Tarefa recusada — motivo: sobrecarga." : "Solicitação de reagendamento enviada."}
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-export default function Entrega2({ theme }: { theme: Theme }) {
-  const [activeSection, setActiveSection] = useState("gps");
-  const isDark = theme === "dark";
-  const bg = isDark ? "bg-slate-900" : "bg-slate-50";
-  const text = isDark ? "text-slate-100" : "text-slate-900";
-  const sub = isDark ? "text-slate-400" : "text-slate-500";
-  const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
-
-  const current = SECTIONS.find(s => s.id === activeSection)!;
-
-  return (
-    <div className={`min-h-full ${bg} pb-6`}>
-      {/* Header */}
-      <div className="px-4 pt-3 pb-3">
-        <p className={`text-xs ${sub}`}>Entrega 2 • AV2: 20%</p>
-        <h1 className={`text-lg font-bold ${text}`}>Hardware & Integrações</h1>
-        <p className={`text-xs ${sub} mt-0.5`}>US06 – US14 • 17 Itens do Backlog</p>
-      </div>
-
-      {/* Section picker */}
-      <div className="px-4 mb-3 overflow-x-auto scrollbar-hide">
-        <div className="flex gap-2 pb-1">
-          {SECTIONS.map(s => {
-            const Icon = s.icon;
-            return (
-              <button
-                key={s.id}
-                onClick={() => setActiveSection(s.id)}
-                className={`flex-none flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-xs transition-all ${
-                  activeSection === s.id
-                    ? "bg-indigo-500 border-indigo-500 text-white"
-                    : isDark ? `border-slate-700 ${s.color} hover:border-slate-600` : `border-slate-200 ${s.color}`
-                }`}
-              >
-                <Icon size={11} />
-                <span className="whitespace-nowrap">{s.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Section label */}
-      <div className="px-4 mb-3">
-        <div className={`${card} border rounded-xl px-3 py-2 flex items-center gap-2`}>
-          {(() => { const Icon = current.icon; return <Icon size={14} className={current.color} />; })()}
-          <span className={`text-xs font-semibold ${text}`}>{current.label}</span>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="px-4">
-        {activeSection === "gps" && <GpsSection isDark={isDark} />}
-        {activeSection === "deps" && <DepsSection isDark={isDark} />}
-        {activeSection === "dup" && <DupSection isDark={isDark} />}
-        {activeSection === "cal" && <CalSection isDark={isDark} />}
-        {activeSection === "audio" && <AudioSection isDark={isDark} />}
-        {activeSection === "alerts" && <AlertsSection isDark={isDark} />}
-        {activeSection === "search" && <SearchSection isDark={isDark} />}
-        {activeSection === "recur" && <RecurSection isDark={isDark} />}
-        {activeSection === "assign" && <AssignSection isDark={isDark} />}
       </div>
     </div>
   );

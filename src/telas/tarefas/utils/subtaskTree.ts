@@ -55,13 +55,11 @@ export function toggleSubtask(tree: AppSubtask[], id: string): AppSubtask[] {
         return { ...n, completed: next, children: markAll(n.children, next) };
       }
       const newChildren = toggle(n.children);
-      // If every child is now completed, auto-complete the parent
-      const allDone =
-        newChildren.length > 0 && newChildren.every(c => c.completed);
+      // Pai com filhos fica concluído só quando todos os filhos estão concluídos
       return {
         ...n,
         children: newChildren,
-        completed: allDone ? true : n.completed,
+        completed: newChildren.length > 0 ? newChildren.every(c => c.completed) : n.completed,
       };
     });
   }
