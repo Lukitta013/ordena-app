@@ -6,6 +6,11 @@ import {
   XCircle, MessageSquare, Paperclip, Shield,
 } from "lucide-react";
 import { TASKS, CALENDAR_EVENTS, AUDIT_LOG, TEAM_MEMBERS, TEMPLATES } from "../mock/mockData";
+import { useTasks, isDone, isOverdue, toLocalInput } from "./tarefas/context/TaskContext";
+import { genId, type AppSubtask } from "./tarefas/utils/subtaskTree";
+
+const freshCopy = (nodes: AppSubtask[]): AppSubtask[] =>
+  nodes.map(n => ({ ...n, id: genId(), completed: false, children: freshCopy(n.children) }));
 
 
 
@@ -239,6 +244,19 @@ export function DepsSection({ isDark }: { isDark: boolean }) {
 // ── Duplication & Templates ───────────────────────────────────────
 export function DupSection({ isDark }: { isDark: boolean }) {
   const [duplicated, setDuplicated] = useState<string | null>(null);
+  const { tasks, createTask } = useTasks();
+  const duplicate = (id: string) => {
+    const t = tasks.find(x => x.id === id)!;
+    const { id: _id, updatedAt: _u, syncPending: _s, ...data } = t;
+    createTask({
+      ...data,
+      title: `${t.title} (cópia)`,
+      status: "Pendente",
+      dueDate: toLocalInput(new Date(Date.now() + 7 * 864e5)),
+      subtasks: freshCopy(t.subtasks),
+    });
+    setDuplicated(t.title);
+  };
   const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
   const text = isDark ? "text-slate-100" : "text-slate-900";
   const sub = isDark ? "text-slate-400" : "text-slate-500";
@@ -248,19 +266,19 @@ export function DupSection({ isDark }: { isDark: boolean }) {
       {duplicated && (
         <div className="bg-emerald-500/15 border border-emerald-500/30 rounded-xl p-3 flex items-center gap-2">
           <CheckCircle2 size={14} className="text-emerald-400" />
-          <p className="text-xs text-emerald-300">Tarefa duplicada com sucesso! Datas recalculadas: D+0, D+2, D+5</p>
+          <p className="text-xs text-emerald-300">Cópia de "{duplicated}" criada em Tarefas, com prazo daqui a 7 dias.</p>
         </div>
       )}
       <div className={`${card} border rounded-xl p-3`}>
         <p className={`text-xs font-semibold ${text} mb-2`}>Duplicar Tarefa com Subtarefas</p>
-        {TASKS.slice(0, 3).map(task => (
+        {tasks.filter(t => !isDone(t)).map(task => (
           <div key={task.id} className="flex items-center gap-2 py-2 border-b border-slate-700/30 last:border-0">
             <div className="flex-1 min-w-0">
               <p className={`text-xs font-medium ${text} truncate`}>{task.title}</p>
-              <p className={`text-[10px] ${sub}`}>{task.subtasks.length} subtarefas • {task.effort}h</p>
+              <p className={`text-[10px] ${sub}`}>{task.subtasks.length} subtarefas • {task.effort}</p>
             </div>
             <button
-              onClick={() => setDuplicated(task.id)}
+              onClick={() => duplicate(task.id)}
               className="flex items-center gap-1 text-[10px] bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 px-2 py-1 rounded-lg hover:bg-indigo-500/30 transition-colors flex-none"
             >
               <Copy size={10} /> Duplicar
@@ -489,13 +507,25 @@ export function AudioSection({ isDark }: { isDark: boolean }) {
 export function AlertsSection({ isDark }: { isDark: boolean }) {
   const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
   const text = isDark ? "text-slate-100" : "text-slate-900";
+  const { tasks } = useTasks();
+  // Régua fixa de níveis; a lista abaixo usa o nível de cada tarefa real
   const urgencyLevels = [
-    { label: "7 dias", color: "bg-emerald-500", text: "text-emerald-400", task: "Criar componentes do Design System", pct: 20 },
-    { label: "3 dias", color: "bg-amber-400", text: "text-amber-400", task: "Implementar OAuth2 + JWT", pct: 40 },
-    { label: "1 dia", color: "bg-orange-500", text: "text-orange-400", task: "Refatorar camada MinIO", pct: 60 },
-    { label: "2 horas", color: "bg-rose-500", text: "text-rose-400", task: "Aprovação dos Testes E2E", pct: 80 },
-    { label: "30 min", color: "bg-rose-700 animate-pulse", text: "text-rose-500", task: "Deploy em Produção", pct: 100 },
+    { label: "7 dias", maxH: 168, color: "bg-emerald-500", text: "text-emerald-400", pct: 20 },
+    { label: "3 dias", maxH: 72, color: "bg-amber-400", text: "text-amber-400", pct: 40 },
+    { label: "1 dia", maxH: 24, color: "bg-orange-500", text: "text-orange-400", pct: 60 },
+    { label: "2 horas", maxH: 2, color: "bg-rose-500", text: "text-rose-400", pct: 80 },
+    { label: "30 min", maxH: 0.5, color: "bg-rose-700 animate-pulse", text: "text-rose-500", pct: 100 },
   ];
+  const levelOf = (h: number) => [...urgencyLevels].reverse().find(u => h <= u.maxH);
+  const fmtLeft = (h: number) => h < 0 ? "Atrasada" : h < 1 ? `${Math.round(h * 60)} min` : h < 48 ? `${Math.round(h)} h` : `${Math.round(h / 24)} dias`;
+  const upcoming = tasks
+    .filter(t => !isDone(t))
+    .map(t => ({ t, h: (new Date(t.dueDate).getTime() - Date.now()) / 36e5 }))
+    .filter(x => x.h <= 168)
+    .sort((a, b) => a.h - b.h);
+  const critical = upcoming.filter(x => x.h >= 0 && x.h <= 24).length;
+  const late = tasks.filter(isOverdue).length;
+  const atRisk = upcoming.filter(x => x.h > 24 && x.h <= 72).length;
 
   return (
     <div className="space-y-3">
@@ -519,22 +549,26 @@ export function AlertsSection({ isDark }: { isDark: boolean }) {
       </div>
 
       <div className="space-y-2">
-        {urgencyLevels.map((u, i) => (
-          <div key={i} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${i === 4 ? "border-rose-500/30 bg-rose-500/10" : i === 3 ? "border-orange-500/20 bg-orange-500/5" : "border-slate-700/50 bg-slate-800/40"}`}>
-            <div className={`w-2 h-2 rounded-full flex-none ${u.color}`} />
-            <div className="flex-1 min-w-0">
-              <p className={`text-xs font-medium ${text} truncate`}>{u.task}</p>
+        {upcoming.length === 0 && <p className="text-xs text-slate-500 text-center py-2">Nenhuma tarefa vence nos próximos 7 dias.</p>}
+        {upcoming.map(({ t, h }) => {
+          const u = levelOf(h) ?? urgencyLevels[4];
+          return (
+            <div key={t.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${h <= 2 ? "border-rose-500/30 bg-rose-500/10" : h <= 24 ? "border-orange-500/20 bg-orange-500/5" : isDark ? "border-slate-700/50 bg-slate-800/40" : "border-slate-200 bg-white"}`}>
+              <div className={`w-2 h-2 rounded-full flex-none ${u.color}`} />
+              <div className="flex-1 min-w-0">
+                <p className={`text-xs font-medium ${text} truncate`}>{t.title}</p>
+              </div>
+              <span className={`text-[10px] font-mono ${u.text} flex-none whitespace-nowrap`}>{fmtLeft(h)}</span>
             </div>
-            <span className={`text-[10px] font-mono ${u.text} flex-none whitespace-nowrap`}>{u.label}</span>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className={`${card} border border-rose-500/20 rounded-xl p-3`}>
         <p className="text-xs font-semibold text-rose-400 mb-1 flex items-center gap-1.5">
           <Bell size={11} /> Resumo Diário — Pronto para Envio
         </p>
-        <p className="text-xs text-slate-400 mb-2">3 tarefas críticas para hoje • 1 atrasada • 2 em risco</p>
+        <p className="text-xs text-slate-400 mb-2">{critical} vencem em 24h • {late} atrasada{late !== 1 ? "s" : ""} • {atRisk} em risco</p>
         <button className="w-full py-2 rounded-lg bg-rose-500/20 border border-rose-500/30 text-rose-400 text-xs font-medium hover:bg-rose-500/30 transition-colors">
           📧 Disparar Alerta por E-mail / Push
         </button>

@@ -8,7 +8,7 @@ import {
   RefreshCw, HardDrive, Wrench, Lock, Copy, Mic, Search, Users, Video, Moon as MoonIcon,
 } from "lucide-react";
 import TarefasHome from "./telas/tarefas";
-import { TaskProvider } from "./telas/tarefas/context/TaskContext";
+import { TaskProvider, useTasks, isDone, isOverdue, sameDay } from "./telas/tarefas/context/TaskContext";
 import AuthFlow from "./telas/login";
 import {
   GpsSection, DepsSection, DupSection, CalSection, AudioSection,
@@ -212,6 +212,7 @@ function ProjetosScreen({
   showUS: boolean;
 }) {
   const [subPage, setSubPage] = useState<string | null>(null);
+  const { tasks } = useTasks();
 
   if (subPage) return <SubPageView id={subPage} theme={theme} showUS={showUS} onBack={() => setSubPage(null)} />;
 
@@ -236,6 +237,9 @@ function ProjetosScreen({
           >
             <p className="font-semibold text-[14px] mb-0.5" style={{ color: "var(--text)" }}>{p.id}</p>
             <p className="text-[12px]" style={{ color: "var(--sub)" }}>{p.desc}</p>
+            <p className="text-[11px] font-mono mt-1" style={{ color: "var(--tertiary)" }}>
+              {tasks.filter(t => t.project === p.id && !isDone(t)).length} em aberto
+            </p>
           </div>
         ))}
       </div>
@@ -265,7 +269,7 @@ function ProjetosScreen({
 
 // ── AgendaScreen ──────────────────────────────────────────────────
 
-function MiniCalendar({ isDark }: { isDark: boolean }) {
+function MiniCalendar({ taskDays }: { taskDays: Set<number> }) {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth();
@@ -291,7 +295,7 @@ function MiniCalendar({ isDark }: { isDark: boolean }) {
       </div>
       <div className="grid grid-cols-7 gap-0.5">
         {cells.map((d, i) => (
-          <div key={i} className="aspect-square flex items-center justify-center rounded-full">
+          <div key={i} className="relative aspect-square flex items-center justify-center rounded-full">
             {d && (
               <span
                 className="w-7 h-7 flex items-center justify-center rounded-full text-[13px]"
@@ -304,6 +308,9 @@ function MiniCalendar({ isDark }: { isDark: boolean }) {
                 {d}
               </span>
             )}
+            {d && taskDays.has(d) && d !== today && (
+              <span className="absolute bottom-0.5 w-1 h-1 rounded-full" style={{ background: "var(--accent)" }} />
+            )}
           </div>
         ))}
       </div>
@@ -311,8 +318,18 @@ function MiniCalendar({ isDark }: { isDark: boolean }) {
   );
 }
 
-function AgendaScreen({ theme, showUS }: { theme: "dark" | "light"; showUS: boolean }) {
+function AgendaScreen({ theme, showUS, onOpenTasks }: { theme: "dark" | "light"; showUS: boolean; onOpenTasks: () => void }) {
   const [subPage, setSubPage] = useState<string | null>(null);
+  const { tasks } = useTasks();
+  const now = new Date();
+  const taskDays = new Set(
+    tasks.map(t => new Date(t.dueDate))
+      .filter(d => d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear())
+      .map(d => d.getDate()),
+  );
+  const todayTasks = tasks
+    .filter(t => !isDone(t) && sameDay(t.dueDate, now))
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
   if (subPage) return <SubPageView id={subPage} theme={theme} showUS={showUS} onBack={() => setSubPage(null)} />;
 
@@ -331,15 +348,22 @@ function AgendaScreen({ theme, showUS }: { theme: "dark" | "light"; showUS: bool
         className="mx-4 rounded-xl overflow-hidden"
         style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
       >
-        <MiniCalendar isDark={theme === "dark"} />
+        <MiniCalendar taskDays={taskDays} />
       </div>
 
       {/* Today's tasks note */}
       <div className="mx-4 mt-3 px-4 py-3 rounded-xl" style={{ background: "var(--sunken)", border: "1px solid var(--border)" }}>
         <p className="text-[12px] font-mono" style={{ color: "var(--tertiary)" }}>HOJE</p>
-        <p className="text-[13px] mt-1" style={{ color: "var(--sub)" }}>
-          Abra a aba <span style={{ color: "var(--accent)" }}>Tarefas</span> para ver as tarefas com prazo hoje.
-        </p>
+        {todayTasks.length === 0 ? (
+          <p className="text-[13px] mt-1" style={{ color: "var(--sub)" }}>Nenhuma tarefa com prazo hoje.</p>
+        ) : todayTasks.map(t => (
+          <button key={t.id} onClick={onOpenTasks} className="w-full flex items-center gap-2 mt-1.5 text-left">
+            <span className="text-[12px] font-mono flex-none" style={{ color: "var(--accent)" }}>
+              {new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+            <span className="text-[13px] truncate" style={{ color: "var(--text)" }}>{t.title}</span>
+          </button>
+        ))}
       </div>
 
       {/* Lembretes block */}
@@ -358,6 +382,7 @@ function AgendaScreen({ theme, showUS }: { theme: "dark" | "light"; showUS: bool
 
 function AnalisesScreen({ theme, showUS }: { theme: "dark" | "light"; showUS: boolean }) {
   const [subPage, setSubPage] = useState<string | null>(null);
+  const { tasks } = useTasks();
 
   if (subPage) return <SubPageView id={subPage} theme={theme} showUS={showUS} onBack={() => setSubPage(null)} />;
 
@@ -369,15 +394,15 @@ function AnalisesScreen({ theme, showUS }: { theme: "dark" | "light"; showUS: bo
           <h1 className="font-semibold text-[22px]" style={{ color: "var(--text)" }}>Análises</h1>
           <USBadge codes="US22–US27" show={showUS} />
         </div>
-        <p className="text-[13px]" style={{ color: "var(--sub)" }}>Esta semana</p>
+        <p className="text-[13px]" style={{ color: "var(--sub)" }}>Todas as suas tarefas</p>
       </div>
 
       {/* KPI row */}
       <div className="px-4 grid grid-cols-3 gap-2 mb-4">
         {[
-          { label: "Entregas", value: "14", color: "var(--success)" },
-          { label: "Em aberto", value: "6", color: "var(--accent)" },
-          { label: "Atrasadas", value: "2", color: "var(--critical)" },
+          { label: "Concluídas", value: tasks.filter(isDone).length, color: "var(--success)" },
+          { label: "Em aberto", value: tasks.filter(t => !isDone(t) && !isOverdue(t)).length, color: "var(--accent)" },
+          { label: "Atrasadas", value: tasks.filter(isOverdue).length, color: "var(--critical)" },
         ].map(k => (
           <div key={k.label} className="rounded-xl px-3 py-4 text-center" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
             <p className="text-[22px] font-bold mb-0.5" style={{ color: k.color }}>{k.value}</p>
@@ -690,7 +715,7 @@ export default function App() {
     switch (navTab) {
       case "tarefas":  return <TarefasScreen  theme={theme} showUS={showUSMarkers} />;
       case "projetos": return <ProjetosScreen  theme={theme} showUS={showUSMarkers} />;
-      case "agenda":   return <AgendaScreen    theme={theme} showUS={showUSMarkers} />;
+      case "agenda":   return <AgendaScreen    theme={theme} showUS={showUSMarkers} onOpenTasks={() => setNavTab("tarefas")} />;
       case "analises": return <AnalisesScreen  theme={theme} showUS={showUSMarkers} />;
       case "ajustes":  return (
         <AjustesScreen

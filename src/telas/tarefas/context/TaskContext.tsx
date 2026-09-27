@@ -74,6 +74,19 @@ export function deriveQuadrant(priority: Priority, dueDate: string): Quadrant {
   return urgent ? "Q3" : "Q4";
 }
 
+export const isDone = (t: AppTask) => t.status === "Concluída";
+export const isOverdue = (t: AppTask) => !isDone(t) && new Date(t.dueDate).getTime() < Date.now();
+export const sameDay = (iso: string, d: Date) => new Date(iso).toDateString() === d.toDateString();
+
+// "2h", "1h30", "45m" → horas
+export function parseEffort(e: string): number {
+  const m = e.trim().match(/^(?:(\d+)h)?\s*(\d+)?m?$/i);
+  if (!m) return 0;
+  const h = Number(m[1] ?? 0);
+  const min = Number(m[2] ?? 0);
+  return m[1] ? h + min / 60 : min / 60;
+}
+
 // ── Seed data ─────────────────────────────────────────────────────
 
 // Formato do <input type="datetime-local"> no fuso local (toISOString usaria UTC)

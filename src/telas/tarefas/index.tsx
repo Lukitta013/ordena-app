@@ -426,12 +426,15 @@ type FormState = {
   effort: string;
 };
 
-function TaskFormModal({ onClose, isDark }: { onClose: () => void; isDark: boolean }) {
+function TaskFormModal({ onClose, isDark, initial, onCreated }: {
+  onClose: () => void; isDark: boolean; initial?: Partial<FormState>; onCreated?: () => void;
+}) {
   const { createTask } = useTasks();
   const [form, setForm] = useState<FormState>({
     title: "", description: "", project: "Faculdade",
     priority: "Média", status: "Pendente",
     dueDate: "", effort: "",
+    ...initial,
   });
   const [subtaskInput, setSubtaskInput] = useState("");
   const [initSubs, setInitSubs] = useState<AppSubtask[]>([]);
@@ -459,6 +462,7 @@ function TaskFormModal({ onClose, isDark }: { onClose: () => void; isDark: boole
       quadrant: previewQ,
       subtasks: initSubs,
     });
+    onCreated?.();
     onClose();
   };
 
@@ -802,6 +806,50 @@ function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDark: boo
   );
 }
 
+// ── QuickNoteSheet ────────────────────────────────────────────────
+
+const NOTE_KEY = "ordena-nota-rapida";
+
+function QuickNoteSheet({ isDark, onClose, onConvert }: {
+  isDark: boolean;
+  onClose: () => void;
+  onConvert: (title: string, description: string) => void;
+}) {
+  const [note, setNote] = useState(() => localStorage.getItem(NOTE_KEY) ?? "");
+  useEffect(() => { localStorage.setItem(NOTE_KEY, note); }, [note]);
+
+  const convert = () => {
+    const [first, ...rest] = note.trim().split("\n");
+    onConvert(first.trim(), rest.join("\n").trim());
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div onClick={e => e.stopPropagation()}
+        className={`w-full max-w-[390px] rounded-t-3xl border-t shadow-2xl px-5 pb-7 ${isDark ? "bg-[#171A21] border-[#262B36]" : "bg-white border-slate-200"}`}>
+        <div className="w-10 h-1 bg-[#262B36] rounded-full mx-auto mt-3 mb-4" />
+        <div className="flex items-center justify-between mb-3">
+          <h2 className={`font-semibold text-base ${isDark ? "text-[#E8EAED]" : "text-[#141821]"}`}>Nota rápida</h2>
+          <button onClick={onClose} className="text-[#9AA0AC]"><X size={20} /></button>
+        </div>
+        <textarea
+          autoFocus
+          rows={5}
+          value={note}
+          onChange={e => setNote(e.target.value)}
+          placeholder={"Anote uma ideia...\nA primeira linha vira o título da tarefa."}
+          className={`w-full text-sm px-3 py-2 rounded-xl border outline-none resize-none ${isDark ? "bg-[#1E222B] border-[#262B36] text-[#E8EAED] placeholder-[#9AA0AC]" : "bg-slate-50 border-slate-200 text-[#141821] placeholder-slate-400"} focus:border-[#4F6BED]`}
+        />
+        <p className="text-[11px] text-[#9AA0AC] mt-1 mb-3">O rascunho fica salvo até a tarefa ser criada.</p>
+        <button onClick={convert} disabled={!note.trim()}
+          className="w-full py-3 rounded-2xl bg-[#4F6BED] hover:bg-[#3F5BD9] text-white text-sm font-semibold disabled:opacity-40">
+          Converter em tarefa completa
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── HomeScreen ────────────────────────────────────────────────────
 
 function HomeScreen({ theme }: { theme: Theme }) {
@@ -810,6 +858,8 @@ function HomeScreen({ theme }: { theme: Theme }) {
   const [activeQ, setActiveQ] = useState<"ALL" | Quadrant>("ALL");
   const [filterProject, setFilterProject] = useState<"Todos" | Project>("Todos");
   const [showCreate, setShowCreate] = useState(false);
+  const [createInitial, setCreateInitial] = useState<Partial<FormState> | undefined>();
+  const [showNote, setShowNote] = useState(false);
   const [detailTask, setDetailTask] = useState<AppTask | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [highlighted, setHighlighted] = useState<string | null>(null);
@@ -840,7 +890,7 @@ function HomeScreen({ theme }: { theme: Theme }) {
   const totalDone = tasks.filter(t => t.status === "Concluída").length;
   const totalToday = tasks.filter(t => fmtDue(t.dueDate).startsWith("Hoje")).length;
 
-  const handleCreate = useCallback(() => setShowCreate(true), []);
+  const handleCreate = useCallback(() => { setCreateInitial(undefined); setShowCreate(true); }, []);
 
   const Q_TABS = [
     { key: "ALL" as const, label: "Todas" },
@@ -1014,12 +1064,26 @@ function HomeScreen({ theme }: { theme: Theme }) {
 
       {/* Quick note FAB */}
       <button
+        onClick={() => setShowNote(true)}
+        title="Nota rápida"
         className={`fixed bottom-36 right-5 w-11 h-11 rounded-2xl flex items-center justify-center z-40 shadow-md transition-colors ${isDark ? "bg-[#1E222B] text-[#9AA0AC] hover:bg-[#262B36]" : "bg-slate-200 text-slate-600 hover:bg-slate-300"}`}
       >
         <FileText size={17} />
       </button>
 
-      {showCreate && <TaskFormModal isDark={isDark} onClose={() => setShowCreate(false)} />}
+      {showCreate && <TaskFormModal isDark={isDark} initial={createInitial} onClose={() => setShowCreate(false)}
+        onCreated={createInitial ? () => localStorage.removeItem(NOTE_KEY) : undefined} />}
+      {showNote && (
+        <QuickNoteSheet
+          isDark={isDark}
+          onClose={() => setShowNote(false)}
+          onConvert={(title, description) => {
+            setShowNote(false);
+            setCreateInitial({ title, description });
+            setShowCreate(true);
+          }}
+        />
+      )}
       {detailTask && (
         <TaskDetailModal task={detailTask} isDark={isDark} onClose={() => setDetailTask(null)} />
       )}

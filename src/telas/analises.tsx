@@ -13,6 +13,7 @@ import {
   PRODUCTIVITY_DATA, MONTHLY_DATA, GANTT_TASKS, LEADERBOARD,
   TASKS, TEAM_MEMBERS, JSON_RULES, OKRS,
 } from "../mock/mockData";
+import { useTasks, isDone, isOverdue, sameDay, parseEffort } from "./tarefas/context/TaskContext";
 
 
 
@@ -23,10 +24,13 @@ export function BiSection({ isDark }: { isDark: boolean }) {
   const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
   const tooltipStyle = { backgroundColor: isDark ? "#1e293b" : "#fff", border: "1px solid #334155", borderRadius: 8, fontSize: 11 };
 
+  const { tasks } = useTasks();
+  const pct = (n: number) => (tasks.length ? `${Math.round((n / tasks.length) * 100)}%` : "—");
+  const avgEffort = tasks.length ? tasks.reduce((h, t) => h + parseEffort(t.effort), 0) / tasks.length : 0;
   const kpis = [
-    { label: "Taxa de Conclusão", value: "72%", delta: "+5%", color: "text-indigo-400", bg: "bg-indigo-500/10" },
-    { label: "Tempo Médio/Tarefa", value: "4.2h", delta: "-0.3h", color: "text-emerald-400", bg: "bg-emerald-500/10" },
-    { label: "Índice de Atraso", value: "18%", delta: "-3%", color: "text-rose-400", bg: "bg-rose-500/10" },
+    { label: "Taxa de Conclusão", value: pct(tasks.filter(isDone).length), color: "text-indigo-400", bg: "bg-indigo-500/10" },
+    { label: "Esforço Médio/Tarefa", value: `${avgEffort.toFixed(1)}h`, color: "text-emerald-400", bg: "bg-emerald-500/10" },
+    { label: "Índice de Atraso", value: pct(tasks.filter(isOverdue).length), color: "text-rose-400", bg: "bg-rose-500/10" },
   ];
 
   return (
@@ -36,13 +40,12 @@ export function BiSection({ isDark }: { isDark: boolean }) {
           <div key={k.label} className={`${card} border rounded-xl p-2.5 ${k.bg}`}>
             <p className={`text-base font-bold ${k.color}`}>{k.value}</p>
             <p className={`text-[9px] ${sub} leading-tight`}>{k.label}</p>
-            <p className={`text-[9px] font-mono ${k.delta.startsWith("+") ? "text-emerald-400" : "text-rose-400"}`}>{k.delta}</p>
           </div>
         ))}
       </div>
 
       <div className={`${card} border rounded-xl p-3`}>
-        <p className={`text-xs font-semibold ${text} mb-3`}>Tarefas Concluídas por Dia</p>
+        <p className={`text-xs font-semibold ${text} mb-3`}>Tarefas Concluídas por Dia <span className={`font-normal ${sub}`}>(exemplo)</span></p>
         <ResponsiveContainer width="100%" height={120}>
           <BarChart data={PRODUCTIVITY_DATA} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#334155" : "#e2e8f0"} />
@@ -56,7 +59,7 @@ export function BiSection({ isDark }: { isDark: boolean }) {
       </div>
 
       <div className={`${card} border rounded-xl p-3`}>
-        <p className={`text-xs font-semibold ${text} mb-3`}>Produtividade: Mensal vs Trimestral</p>
+        <p className={`text-xs font-semibold ${text} mb-3`}>Produtividade: Mensal vs Trimestral <span className={`font-normal ${sub}`}>(exemplo)</span></p>
         <ResponsiveContainer width="100%" height={110}>
           <AreaChart data={MONTHLY_DATA} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#334155" : "#e2e8f0"} />
@@ -591,15 +594,17 @@ export function BurnoutSection({ isDark }: { isDark: boolean }) {
 // ── Backup & PDF ──────────────────────────────────────────────────
 export function BackupSection({ isDark }: { isDark: boolean }) {
   const [backing, setBacking] = useState(false);
-  const [done, setDone] = useState(false);
+  const [backupOk, setBackupOk] = useState(false);
   const [showPdf, setShowPdf] = useState(false);
+  const { tasks } = useTasks();
+  const done = tasks.filter(isDone);
   const text = isDark ? "text-slate-100" : "text-slate-900";
   const sub = isDark ? "text-slate-400" : "text-slate-500";
   const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
 
   const runBackup = () => {
     setBacking(true);
-    setTimeout(() => { setBacking(false); setDone(true); }, 2500);
+    setTimeout(() => { setBacking(false); setBackupOk(true); }, 2500);
   };
 
   return (
@@ -618,11 +623,12 @@ export function BackupSection({ isDark }: { isDark: boolean }) {
               </div>
               <div>
                 <p className="text-xs font-semibold text-slate-700 mb-1">Resumo da Sprint</p>
-                <p className="text-xs text-slate-500">Taxa de conclusão: 72% | Tarefas entregues: 18 | Atrasos: 3</p>
+                <p className="text-xs text-slate-500">Tarefas: {tasks.length} | Concluídas: {done.length} | Atrasadas: {tasks.filter(isOverdue).length}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold text-slate-700 mb-1">Top 3 Tarefas Homologadas</p>
-                {TASKS.slice(0, 3).map(t => (
+                <p className="text-xs font-semibold text-slate-700 mb-1">Tarefas Concluídas</p>
+                {done.length === 0 && <p className="text-xs text-slate-500">Nenhuma ainda.</p>}
+                {done.slice(0, 5).map(t => (
                   <p key={t.id} className="text-xs text-slate-500">— {t.title}</p>
                 ))}
               </div>
@@ -649,10 +655,10 @@ export function BackupSection({ isDark }: { isDark: boolean }) {
             </div>
           ))}
         </div>
-        {done && (
+        {backupOk && (
           <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2.5 py-2 mb-2 flex items-center gap-2">
             <CheckCircle2 size={12} className="text-emerald-400" />
-            <span className="text-xs text-emerald-300">Backup concluído com sucesso! 8 tarefas, 3 projetos.</span>
+            <span className="text-xs text-emerald-300">Backup concluído com sucesso! {tasks.length} tarefas, {new Set(tasks.map(t => t.project)).size} projetos.</span>
           </div>
         )}
         <button onClick={runBackup}
@@ -846,8 +852,13 @@ export function DailySection({ isDark }: { isDark: boolean }) {
   const sub = isDark ? "text-slate-400" : "text-slate-500";
   const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
   const [checked, setChecked] = useState<Record<string, boolean>>({});
-
-  const tomorrowTasks = TASKS.slice(0, 4);
+  const { tasks } = useTasks();
+  const now = new Date();
+  const tomorrow = new Date(now.getTime() + 864e5);
+  const doneToday = tasks.filter(t => isDone(t) && sameDay(t.updatedAt, now));
+  const tomorrowTasks = tasks.filter(t => !isDone(t) && sameDay(t.dueDate, tomorrow));
+  const quickest = tasks.filter(t => !isDone(t) && parseEffort(t.effort) > 0)
+    .sort((a, b) => parseEffort(a.effort) - parseEffort(b.effort))[0];
   const checkpoints = [25, 50, 75, 100];
 
   return (
@@ -858,18 +869,20 @@ export function DailySection({ isDark }: { isDark: boolean }) {
         </p>
         <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-2.5 mb-3">
           <p className="text-xs font-semibold text-emerald-400 mb-1">Entregues Hoje</p>
-          {["Configurar índices SQLite", "Implementar WAL mode", "Code review PR #142"].map((t, i) => (
-            <p key={i} className="text-xs text-emerald-300">— {t}</p>
+          {doneToday.length === 0 && <p className="text-xs text-emerald-300">Nada concluído hoje ainda.</p>}
+          {doneToday.map(t => (
+            <p key={t.id} className="text-xs text-emerald-300">— {t.title}</p>
           ))}
         </div>
         <p className={`text-xs font-semibold ${text} mb-2`}>Planejamento D+1 — Amanhã</p>
+        {tomorrowTasks.length === 0 && <p className={`text-xs ${sub}`}>Nenhuma tarefa com prazo amanhã.</p>}
         {tomorrowTasks.map(t => (
           <div key={t.id} className="flex items-center gap-2 py-1.5 border-b border-slate-700/30 last:border-0">
             <button onClick={() => setChecked(c => ({ ...c, [t.id]: !c[t.id] }))} className="flex-none">
               {checked[t.id] ? <CheckCircle2 size={14} className="text-emerald-400" /> : <div className="w-3.5 h-3.5 rounded-full border-2 border-slate-600" />}
             </button>
             <span className={`text-xs flex-1 ${checked[t.id] ? "line-through text-slate-500" : text}`}>{t.title}</span>
-            <span className="text-[10px] font-mono text-slate-500">{t.effort}h</span>
+            <span className="text-[10px] font-mono text-slate-500">{t.effort}</span>
           </div>
         ))}
       </div>
@@ -879,8 +892,10 @@ export function DailySection({ isDark }: { isDark: boolean }) {
           <Zap size={12} className="text-amber-400" /> Anti-Procrastinação — Task do Momento
         </p>
         <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5">
-          <p className="text-xs font-bold text-amber-300 mb-0.5">Iniciar agora: Atualizar planilha de reuniões</p>
-          <p className={`text-[10px] ${sub}`}>Apenas 15 minutos • Desbloqueará o fluxo de dopamina!</p>
+          <p className="text-xs font-bold text-amber-300 mb-0.5">
+            {quickest ? `Iniciar agora: ${quickest.title}` : "Nenhuma tarefa pendente"}
+          </p>
+          {quickest && <p className={`text-[10px] ${sub}`}>A mais rápida da lista • {quickest.effort}</p>}
           <button className="mt-2 w-full py-1.5 rounded-lg bg-amber-500/30 text-amber-300 text-xs font-semibold">
             ▶ Iniciar Agora
           </button>

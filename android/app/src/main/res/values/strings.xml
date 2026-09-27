@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Interactive Android App</string>
-    <string name="title_activity_main">Interactive Android App</string>
+    <string name="app_name">Ordena</string>
+    <string name="title_activity_main">Ordena</string>
     <string name="package_name">com.interactive.app</string>
     <string name="custom_url_scheme">com.interactive.app</string>
 </resources>
