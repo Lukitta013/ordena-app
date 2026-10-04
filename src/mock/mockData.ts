@@ -2,19 +2,10 @@ export type Priority = "ALTA" | "MEDIA" | "BAIXA";
 export type Status = "Pendente" | "Em Andamento" | "Em Revisão" | "Bloqueada" | "Concluída";
 export type Quadrant = "Q1" | "Q2" | "Q3" | "Q4";
 
-export interface TeamMember {
-  id: string;
-  name: string;
-  avatar: string;
-  role: string;
-  capacity: number; // %
-}
-
 export interface Subtask {
   id: string;
   title: string;
   done: boolean;
-  assignee?: string;
   deadline?: string;
   children?: Subtask[];
 }
@@ -57,7 +48,6 @@ export interface Task {
   effort: number; // hours
   deadline: string;
   tags: string[];
-  assignee: string;
   subtasks: Subtask[];
   attachments: Attachment[];
   comments: Comment[];
@@ -95,13 +85,6 @@ export interface OKR {
   unit: string;
 }
 
-export const TEAM_MEMBERS: TeamMember[] = [
-  { id: "tm1", name: "Lucas Inacio", avatar: "LI", role: "Tech Lead", capacity: 92 },
-  { id: "tm2", name: "Mariana Silva", avatar: "MS", role: "Backend Dev", capacity: 65 },
-  { id: "tm3", name: "Carlos Souza", avatar: "CS", role: "Frontend Dev", capacity: 30 },
-  { id: "tm4", name: "Ana Mendes", avatar: "AM", role: "UX Designer", capacity: 78 },
-];
-
 export const PROJECTS = [
   { id: "p1", name: "App Ordena - Sprint Core", color: "#6366F1" },
   { id: "p2", name: "Backend Node.js", color: "#10B981" },
@@ -120,23 +103,23 @@ function calcProgress(subtasks: Subtask[]): number {
 const subtasksT1: Subtask[] = [
   {
     id: "st1-1", title: "Configurar índices compostos no SQLite", done: true,
-    assignee: "Lucas Inacio", deadline: "2025-09-10",
+    deadline: "2025-09-10",
     children: [
       { id: "st1-1-1", title: "Mapear queries mais lentas", done: true },
       { id: "st1-1-2", title: "Criar migration v2_indexes.sql", done: true },
     ],
   },
-  { id: "st1-2", title: "Implementar WAL mode para concorrência", done: true, assignee: "Carlos Souza", deadline: "2025-09-11" },
-  { id: "st1-3", title: "Testes de performance com 10k registros", done: false, assignee: "Mariana Silva", deadline: "2025-09-14" },
-  { id: "st1-4", title: "Documentar estratégia offline-first", done: false, assignee: "Ana Mendes", deadline: "2025-09-15" },
-  { id: "st1-5", title: "Code review e merge na branch main", done: false, assignee: "Lucas Inacio", deadline: "2025-09-16" },
+  { id: "st1-2", title: "Implementar WAL mode para concorrência", done: true, deadline: "2025-09-11" },
+  { id: "st1-3", title: "Testes de performance com 10k registros", done: false, deadline: "2025-09-14" },
+  { id: "st1-4", title: "Documentar estratégia offline-first", done: false, deadline: "2025-09-15" },
+  { id: "st1-5", title: "Code review e merge na branch main", done: false, deadline: "2025-09-16" },
 ];
 
 const subtasksT2: Subtask[] = [
-  { id: "st2-1", title: "Criar endpoint POST /tasks no Express", done: true, assignee: "Mariana Silva" },
-  { id: "st2-2", title: "Validação de schema com Zod", done: true, assignee: "Mariana Silva" },
-  { id: "st2-3", title: "Integrar JWT middleware de autenticação", done: false, assignee: "Lucas Inacio" },
-  { id: "st2-4", title: "Testes unitários com Jest (coverage > 80%)", done: false, assignee: "Carlos Souza" },
+  { id: "st2-1", title: "Criar endpoint POST /tasks no Express", done: true },
+  { id: "st2-2", title: "Validação de schema com Zod", done: true },
+  { id: "st2-3", title: "Integrar JWT middleware de autenticação", done: false },
+  { id: "st2-4", title: "Testes unitários com Jest (coverage > 80%)", done: false },
 ];
 
 const subtasksT3: Subtask[] = [
@@ -158,15 +141,14 @@ export const TASKS: Task[] = [
     effort: 6,
     deadline: "2025-09-12",
     tags: ["#critico", "#frontend", "#performance"],
-    assignee: "Lucas Inacio",
     subtasks: subtasksT1,
     attachments: [
       { id: "att1", type: "audio", name: "nota_vazamento.mp3", size: "240 KB", url: "#", duration: "1:42" },
       { id: "att2", type: "pdf", name: "diagnostico_memoria.pdf", size: "1.2 MB", url: "#" },
     ],
     comments: [
-      { id: "c1", author: "Mariana Silva", avatar: "MS", text: "Reproduzi o bug localmente. O profiler mostra crescimento de heap no chunk vendor.js.", timestamp: "Hoje, 09:14" },
-      { id: "c2", author: "Lucas Inacio", avatar: "LI", text: "Vou tentar com SplitChunksPlugin primeiro.", timestamp: "Hoje, 09:32" },
+      { id: "c1", author: "Você", avatar: "EU", text: "Reproduzi o bug localmente. O profiler mostra crescimento de heap no chunk vendor.js.", timestamp: "Hoje, 09:14" },
+      { id: "c2", author: "Você", avatar: "EU", text: "Vou tentar com SplitChunksPlugin primeiro.", timestamp: "Hoje, 09:32" },
     ],
     dependencies: [],
     isRecurring: false,
@@ -188,11 +170,10 @@ export const TASKS: Task[] = [
     effort: 8,
     deadline: "2025-09-18",
     tags: ["#api", "#backend", "#minio"],
-    assignee: "Mariana Silva",
     subtasks: subtasksT3,
     attachments: [],
     comments: [
-      { id: "c3", author: "Carlos Souza", avatar: "CS", text: "Já encontrei a documentação do novo SDK v3. Posso ajudar com a migração.", timestamp: "Ontem, 16:45" },
+      { id: "c3", author: "Você", avatar: "EU", text: "Já encontrei a documentação do novo SDK v3. Começar a migração amanhã.", timestamp: "Ontem, 16:45" },
     ],
     dependencies: ["t1"],
     isRecurring: false,
@@ -213,7 +194,6 @@ export const TASKS: Task[] = [
     effort: 3,
     deadline: "2025-09-13",
     tags: ["#devops", "#deploy", "#backend"],
-    assignee: "Lucas Inacio",
     subtasks: [
       { id: "st3a-1", title: "Aguardar aprovação dos testes E2E", done: false },
       { id: "st3a-2", title: "Executar pipeline CI/CD", done: false },
@@ -240,13 +220,12 @@ export const TASKS: Task[] = [
     effort: 4,
     deadline: "2025-09-12",
     tags: ["#testes", "#qa", "#e2e"],
-    assignee: "Carlos Souza",
     subtasks: subtasksT2,
     attachments: [
       { id: "att3", type: "image", name: "coverage_report.png", size: "380 KB", url: "https://images.unsplash.com/photo-1555066931-4365d14431b9?w=400&h=300&fit=crop" },
     ],
     comments: [
-      { id: "c4", author: "Ana Mendes", avatar: "AM", text: "Os testes de fluxo de pagamento ainda estão quebrando no CI. Preciso de acesso ao ambiente de staging.", timestamp: "Hoje, 08:00" },
+      { id: "c4", author: "Você", avatar: "EU", text: "Os testes de fluxo de pagamento ainda estão quebrando no CI. Ver o ambiente de staging.", timestamp: "Hoje, 08:00" },
     ],
     dependencies: [],
     isRecurring: false,
@@ -257,8 +236,8 @@ export const TASKS: Task[] = [
   },
   {
     id: "t5",
-    title: "Atualizar planilha de reuniões semanais",
-    description: "Preencher ata da retrospectiva e distribuir para todos os membros da equipe via e-mail.",
+    title: "Atualizar planilha de gastos semanais",
+    description: "Lançar os gastos da semana e conferir o saldo do mês.",
     project: "App Ordena - Sprint Core",
     projectColor: "#6366F1",
     priority: "MEDIA",
@@ -266,8 +245,7 @@ export const TASKS: Task[] = [
     quadrant: "Q3",
     effort: 1,
     deadline: "2025-09-13",
-    tags: ["#administrativo", "#reuniao"],
-    assignee: "Ana Mendes",
+    tags: ["#administrativo", "#financas"],
     subtasks: [],
     attachments: [],
     comments: [],
@@ -282,7 +260,7 @@ export const TASKS: Task[] = [
   {
     id: "t6",
     title: "Organizar pastas antigas de downloads",
-    description: "Limpar e categorizar arquivos de projetos antigos no servidor de arquivos compartilhado.",
+    description: "Limpar e categorizar arquivos de projetos antigos no computador.",
     project: "Infraestrutura MinIO/S3",
     projectColor: "#F59E0B",
     priority: "BAIXA",
@@ -291,7 +269,6 @@ export const TASKS: Task[] = [
     effort: 2,
     deadline: "2025-09-20",
     tags: ["#organizacao", "#limpeza"],
-    assignee: "Carlos Souza",
     subtasks: [],
     attachments: [],
     comments: [],
@@ -314,7 +291,6 @@ export const TASKS: Task[] = [
     effort: 12,
     deadline: "2025-09-22",
     tags: ["#design", "#storybook", "#frontend"],
-    assignee: "Ana Mendes",
     subtasks: [
       { id: "st7-1", title: "Button com variantes e estados", done: true },
       { id: "st7-2", title: "Input com validação integrada", done: true },
@@ -346,7 +322,6 @@ export const TASKS: Task[] = [
     effort: 10,
     deadline: "2025-09-25",
     tags: ["#auth", "#seguranca", "#backend"],
-    assignee: "Mariana Silva",
     subtasks: [
       { id: "st8-1", title: "Registrar app no Google Cloud Console", done: true },
       { id: "st8-2", title: "Configurar Passport.js com Google Strategy", done: false },
@@ -355,7 +330,7 @@ export const TASKS: Task[] = [
     ],
     attachments: [],
     comments: [
-      { id: "c5", author: "Lucas Inacio", avatar: "LI", text: "Lembrar de usar RS256 ao invés de HS256 para melhor segurança.", timestamp: "2025-09-10, 14:20" },
+      { id: "c5", author: "Você", avatar: "EU", text: "Lembrar de usar RS256 ao invés de HS256 para melhor segurança.", timestamp: "2025-09-10, 14:20" },
     ],
     dependencies: ["t4"],
     isRecurring: false,
@@ -375,39 +350,39 @@ TASKS.forEach(t => {
 });
 
 export const CALENDAR_EVENTS: CalendarEvent[] = [
-  { id: "ce1", title: "Sprint Planning Q4", date: "2025-09-13", time: "09:00", synced: true, taskId: "t1" },
-  { id: "ce2", title: "Code Review - Auth Module", date: "2025-09-14", time: "14:00", synced: true, taskId: "t8" },
-  { id: "ce3", title: "Demo Day - Stakeholders", date: "2025-09-17", time: "10:00", synced: false },
-  { id: "ce4", title: "Retrospectiva Sprint 12", date: "2025-09-19", time: "16:00", synced: true },
-  { id: "ce5", title: "1:1 Lucas & Mariana", date: "2025-09-15", time: "11:00", synced: false },
+  { id: "ce1", title: "Revisar plano da semana", date: "2025-09-13", time: "09:00", synced: true, taskId: "t1" },
+  { id: "ce2", title: "Consulta médica", date: "2025-09-14", time: "14:00", synced: true },
+  { id: "ce3", title: "Entrega do trabalho da faculdade", date: "2025-09-17", time: "10:00", synced: false },
+  { id: "ce4", title: "Academia", date: "2025-09-19", time: "16:00", synced: true },
+  { id: "ce5", title: "Pagar contas do mês", date: "2025-09-15", time: "11:00", synced: false },
 ];
 
 export const AUDIT_LOG: AuditEntry[] = [
-  { id: "al1", action: "Criou tarefa", user: "Lucas Inacio", timestamp: "2025-09-10 08:00", detail: "Criou 'Corrigir vazamento de memória no build'" },
-  { id: "al2", action: "Alterou status", user: "Mariana Silva", timestamp: "2025-09-10 10:15", detail: "t2: Pendente → Em Andamento" },
-  { id: "al3", action: "Comentou", user: "Carlos Souza", timestamp: "2025-09-10 16:45", detail: "Adicionou comentário em 'Refatorar camada MinIO'" },
-  { id: "al4", action: "Anexou arquivo", user: "Ana Mendes", timestamp: "2025-09-11 09:00", detail: "coverage_report.png → Testes E2E" },
+  { id: "al1", action: "Criou tarefa", user: "Você", timestamp: "2025-09-10 08:00", detail: "Criou 'Corrigir vazamento de memória no build'" },
+  { id: "al2", action: "Alterou status", user: "Você", timestamp: "2025-09-10 10:15", detail: "t2: Pendente → Em Andamento" },
+  { id: "al3", action: "Comentou", user: "Você", timestamp: "2025-09-10 16:45", detail: "Adicionou comentário em 'Refatorar camada MinIO'" },
+  { id: "al4", action: "Anexou arquivo", user: "Você", timestamp: "2025-09-11 09:00", detail: "coverage_report.png → Testes E2E" },
   { id: "al5", action: "Bloqueou tarefa", user: "Sistema", timestamp: "2025-09-11 11:30", detail: "Deploy bloqueado: Testes E2E pendentes" },
-  { id: "al6", action: "Marcou subtarefa", user: "Lucas Inacio", timestamp: "2025-09-11 13:00", detail: "✓ Configurar índices compostos no SQLite" },
+  { id: "al6", action: "Marcou subtarefa", user: "Você", timestamp: "2025-09-11 13:00", detail: "✓ Configurar índices compostos no SQLite" },
 ];
 
 export const JSON_RULES: JsonRule[] = [
   {
     id: "jr1",
     condition: "task.priority === 'ALTA' && task.status === 'BLOQUEADA'",
-    action: "notify('Gestor', 'URGENTE') && scheduleSlackAlert()",
+    action: "notify('URGENTE') && moveToTop()",
     active: true,
   },
   {
     id: "jr2",
     condition: "task.deadline < today && task.status !== 'Concluída'",
-    action: "escalate('Tech Lead') && sendEmailAlert()",
+    action: "markOverdue() && sendPushAlert()",
     active: true,
   },
   {
     id: "jr3",
-    condition: "team.capacity > 90",
-    action: "suggestDelegation() && notifyBurnoutAlert()",
+    condition: "today.hours > 8",
+    action: "suggestBreak() && notifyBurnoutAlert()",
     active: false,
   },
 ];
@@ -415,7 +390,7 @@ export const JSON_RULES: JsonRule[] = [
 export const OKRS: OKR[] = [
   { id: "okr1", goal: "Concluir tarefas técnicas hoje", target: 4, current: 3, unit: "tarefas" },
   { id: "okr2", goal: "Taxa de cobertura de testes", target: 80, current: 68, unit: "%" },
-  { id: "okr3", goal: "Tempo médio de revisão de PR", target: 2, current: 3.5, unit: "horas" },
+  { id: "okr3", goal: "Horas de estudo na semana", target: 10, current: 6.5, unit: "horas" },
 ];
 
 export const PRODUCTIVITY_DATA = [
@@ -444,15 +419,8 @@ export const GANTT_TASKS = [
   { id: "g6", title: "Deploy Produção", start: 11, duration: 2, color: "#F43F5E", deps: ["g5"] },
 ];
 
-export const LEADERBOARD = [
-  { codename: "Arquiteto #01", score: 94, tasks: 32, streak: 12 },
-  { codename: "Desenvolvedor Ágil #04", score: 88, tasks: 28, streak: 8 },
-  { codename: "QA Master #02", score: 82, tasks: 25, streak: 6 },
-  { codename: "Designer #03", score: 76, tasks: 19, streak: 4 },
-];
-
 export const TEMPLATES = [
-  { id: "tpl1", name: "Onboarding de Novo Membro", tasks: 8, description: "Fluxo completo de integração de novo colaborador" },
-  { id: "tpl2", name: "Fechamento Mensal", tasks: 5, description: "Checklist de fechamento financeiro e relatórios" },
-  { id: "tpl3", name: "Sprint Planning", tasks: 6, description: "Cerimônias e artefatos da sprint" },
+  { id: "tpl1", name: "Rotina da Manhã", tasks: 5, description: "Checklist para começar o dia" },
+  { id: "tpl2", name: "Fechamento Mensal", tasks: 5, description: "Contas, gastos e metas do mês" },
+  { id: "tpl3", name: "Semana de Provas", tasks: 6, description: "Revisões e entregas da faculdade" },
 ];

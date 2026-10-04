@@ -1,18 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import {
-  BarChart2, TrendingUp, Zap, Users, Video, Shield, Code2,
-  Moon, Download, Target, Lock, Star, ChevronRight, X,
-  Play, Pause, Mic, MicOff, Camera, CameraOff, Monitor,
-  Clock, AlertTriangle, CheckCircle2, RefreshCw, Coffee, PhoneOff,
-} from "lucide-react";
+import { Zap, Code2, Moon, Download, Target, X, Play, Pause, CheckCircle2, RefreshCw, Coffee } from "lucide-react";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, Area, AreaChart, CartesianGrid,
 } from "recharts";
-import {
-  PRODUCTIVITY_DATA, MONTHLY_DATA, GANTT_TASKS, LEADERBOARD,
-  TASKS, TEAM_MEMBERS, JSON_RULES, OKRS,
-} from "../mock/mockData";
+import { PRODUCTIVITY_DATA, MONTHLY_DATA, GANTT_TASKS, TASKS, JSON_RULES, OKRS } from "../mock/mockData";
 import { useTasks, isDone, isOverdue, sameDay, parseEffort } from "./tarefas/context/TaskContext";
 
 
@@ -243,7 +235,7 @@ export function PredictSection({ isDark }: { isDark: boolean }) {
   return (
     <div className="space-y-3">
       <div className={`${card} border rounded-xl p-3`}>
-        <p className={`text-xs font-semibold ${text} mb-3`}>Burndown Preditivo — Sprint Core</p>
+        <p className={`text-xs font-semibold ${text} mb-3`}>Burndown Preditivo — Semana</p>
         <div className="flex items-start gap-3 mb-3">
           <div className="flex-1">
             <p className={`text-[10px] ${sub} mb-0.5`}>Velocidade atual</p>
@@ -261,247 +253,8 @@ export function PredictSection({ isDark }: { isDark: boolean }) {
         <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
           <div className="h-full w-[58%] bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-full" />
         </div>
-        <p className={`text-[10px] ${sub} mt-1`}>58% da sprint concluída</p>
+        <p className={`text-[10px] ${sub} mt-1`}>58% da semana concluída</p>
       </div>
-
-      <div className={`${card} border rounded-xl p-3`}>
-        <p className={`text-xs font-semibold ${text} mb-2`}>Dimensionamento de Recursos</p>
-        {[
-          { role: "Dev Backend", hours: 40, need: 2 },
-          { role: "Dev Frontend", hours: 32, need: 1.5 },
-          { role: "UX Designer", hours: 16, need: 0.5 },
-          { role: "QA Engineer", hours: 24, need: 1 },
-        ].map(r => (
-          <div key={r.role} className="flex items-center gap-3 py-2 border-b border-slate-700/30 last:border-0">
-            <div className="flex-1">
-              <p className={`text-xs font-medium ${text}`}>{r.role}</p>
-              <p className={`text-[10px] ${sub}`}>{r.hours}h necessárias</p>
-            </div>
-            <span className="text-xs font-mono text-indigo-400">{r.need} dev</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── Capacity ──────────────────────────────────────────────────────
-export function CapacitySection({ isDark }: { isDark: boolean }) {
-  const [delegated, setDelegated] = useState(false);
-  const text = isDark ? "text-slate-100" : "text-slate-900";
-  const sub = isDark ? "text-slate-400" : "text-slate-500";
-  const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
-
-  return (
-    <div className="space-y-3">
-      <div className={`${card} border rounded-xl p-3`}>
-        <p className={`text-xs font-semibold ${text} mb-3`}>Heatmap de Alocação da Equipe</p>
-        {TEAM_MEMBERS.map(m => (
-          <div key={m.id} className="mb-3">
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-indigo-600 flex items-center justify-center text-white text-[10px] font-bold">{m.avatar}</div>
-                <div>
-                  <p className={`text-xs font-medium ${text}`}>{m.name}</p>
-                  <p className={`text-[9px] ${sub}`}>{m.role}</p>
-                </div>
-              </div>
-              <span className={`text-xs font-mono font-bold ${m.capacity > 85 ? "text-rose-400" : m.capacity > 60 ? "text-amber-400" : "text-emerald-400"}`}>
-                {m.capacity}%
-              </span>
-            </div>
-            <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-              <div className={`h-full rounded-full transition-all ${m.capacity > 85 ? "bg-rose-500" : m.capacity > 60 ? "bg-amber-500" : "bg-emerald-500"}`}
-                style={{ width: `${m.capacity}%` }} />
-            </div>
-            <p className={`text-[9px] mt-0.5 ${m.capacity > 85 ? "text-rose-400" : m.capacity > 60 ? "text-amber-400" : "text-emerald-400"}`}>
-              {m.capacity > 85 ? "Sobrecarga" : m.capacity > 60 ? "Ideal" : "Ocioso"}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      {!delegated ? (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
-          <p className="text-xs font-semibold text-amber-400 mb-1.5">Sugestão Automática do Sistema</p>
-          <p className="text-xs text-amber-200 mb-3">
-            Transferir <strong>"Ajustar Schema SQLite"</strong> de <strong>Lucas Inacio (92%)</strong> para <strong>Carlos Souza (30%)</strong> para equilibrar a sprint.
-          </p>
-          <button onClick={() => setDelegated(true)}
-            className="w-full py-2 rounded-xl bg-amber-500 text-white text-xs font-semibold">
-            Aplicar Delegação Automática
-          </button>
-        </div>
-      ) : (
-        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 flex items-center gap-2">
-          <CheckCircle2 size={14} className="text-emerald-400" />
-          <p className="text-xs text-emerald-300">Tarefa delegada! Carlos Souza agora está em 55% de capacidade.</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Optimistic Lock ────────────────────────────────────────────────
-export function LockSection({ isDark }: { isDark: boolean }) {
-  const [showConflict, setShowConflict] = useState(true);
-  const text = isDark ? "text-slate-100" : "text-slate-900";
-  const sub = isDark ? "text-slate-400" : "text-slate-500";
-  const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
-
-  return (
-    <div className="space-y-3">
-      {showConflict && (
-        <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3">
-          <div className="flex items-start gap-2 mb-2">
-            <AlertTriangle size={14} className="text-rose-400 flex-none mt-0.5" />
-            <p className="text-xs font-semibold text-rose-400">Alerta de Lock Otimista</p>
-          </div>
-          <p className="text-xs text-rose-200 mb-3">
-            Este registro foi alterado por <strong>Mariana Silva</strong> há 1 minuto. Suas alterações locais podem conflitar.
-          </p>
-          <div className="flex gap-2">
-            <button onClick={() => setShowConflict(false)} className="flex-1 py-2 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 text-xs font-medium">
-              Visualizar e Mesclar
-            </button>
-            <button onClick={() => setShowConflict(false)} className="flex-1 py-2 rounded-xl bg-slate-700 border border-slate-600 text-slate-300 text-xs">
-              Descartar Local
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className={`${card} border rounded-xl p-3`}>
-        <p className={`text-xs font-semibold ${text} mb-2`}>Histórico de Mudanças de Escopo</p>
-        {[
-          { user: "Lucas Inacio", change: "Prazo alterado de 10/09 para 14/09 (+4 dias)", time: "Hoje, 09:00", type: "deadline" },
-          { user: "Mariana Silva", change: "Escopo expandido: adicionadas 3 subtarefas de segurança", time: "Ontem, 16:30", type: "scope" },
-          { user: "Ana Mendes", change: "Estimativa de esforço revisada: 6h → 10h", time: "2025-09-09, 11:00", type: "effort" },
-        ].map((h, i) => (
-          <div key={i} className="flex gap-2 py-2 border-b border-slate-700/30 last:border-0">
-            <div className={`w-1.5 h-1.5 rounded-full flex-none mt-1.5 ${h.type === "deadline" ? "bg-amber-400" : h.type === "scope" ? "bg-indigo-400" : "bg-rose-400"}`} />
-            <div>
-              <p className={`text-xs font-medium ${text}`}>{h.user}</p>
-              <p className={`text-[10px] ${sub}`}>{h.change}</p>
-              <p className="text-[9px] text-slate-600 font-mono">{h.time}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── WebRTC ────────────────────────────────────────────────────────
-export function WebRTCSection({ isDark }: { isDark: boolean }) {
-  const [inCall, setInCall] = useState(false);
-  const [muted, setMuted] = useState(false);
-  const [camOff, setCamOff] = useState(false);
-  const [sharing, setSharing] = useState(false);
-  const [callTime, setCallTime] = useState(0);
-  const ref = useRef<ReturnType<typeof setInterval> | null>(null);
-  const text = isDark ? "text-slate-100" : "text-slate-900";
-  const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
-
-  const startCall = () => {
-    setInCall(true);
-    setCallTime(0);
-    ref.current = setInterval(() => setCallTime(s => s + 1), 1000);
-  };
-  const endCall = () => {
-    setInCall(false);
-    if (ref.current) clearInterval(ref.current);
-    setCallTime(0);
-    setMuted(false);
-    setCamOff(false);
-    setSharing(false);
-  };
-  useEffect(() => () => { if (ref.current) clearInterval(ref.current); }, []);
-
-  const fmt = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
-
-  return (
-    <div className="space-y-3">
-      {!inCall ? (
-        <div className={`${card} border rounded-xl p-3`}>
-          <p className={`text-xs font-semibold ${text} mb-3 flex items-center gap-1.5`}>
-            <Video size={12} className="text-violet-400" /> Chamada WebRTC P2P
-          </p>
-          <div className="flex gap-2 mb-3">
-            {TEAM_MEMBERS.slice(0, 3).map(m => (
-              <div key={m.id} className="flex flex-col items-center gap-1">
-                <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-bold">{m.avatar}</div>
-                <span className="text-[9px] text-slate-400">{m.name.split(" ")[0]}</span>
-              </div>
-            ))}
-          </div>
-          <div className="bg-slate-800/60 border border-slate-700/50 rounded-xl px-3 py-2 mb-3">
-            <p className="text-[10px] font-mono text-emerald-400">Status: Node.js Signaling Server Ativo</p>
-            <p className="text-[10px] text-slate-400">STUN: stun.l.google.com:19302 | TURN: Configurado</p>
-          </div>
-          <button onClick={startCall}
-            className="w-full py-3 rounded-xl bg-[#4F6BED] hover:bg-[#3F5BD9] text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
-            <Video size={16} /> Iniciar Alinhamento WebRTC
-          </button>
-        </div>
-      ) : (
-        <div className="bg-slate-900 border border-violet-500/30 rounded-xl overflow-hidden">
-          {/* Video area */}
-          <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 h-48">
-            <img
-              src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=390&h=192&fit=crop"
-              alt="Remote participant"
-              className={`w-full h-full object-cover transition-opacity ${camOff ? "opacity-20" : "opacity-70"}`}
-            />
-            {camOff && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <CameraOff size={32} className="text-slate-400" />
-              </div>
-            )}
-            {/* Self view */}
-            <div className="absolute bottom-2 right-2 w-16 h-20 rounded-lg bg-slate-700 border border-slate-600 overflow-hidden">
-              <div className="w-full h-full bg-gradient-to-br from-indigo-800 to-slate-800 flex items-center justify-center">
-                <span className="text-white text-xs font-bold">LI</span>
-              </div>
-            </div>
-            {/* Call info overlay */}
-            <div className="absolute top-2 left-2 flex items-center gap-2">
-              <div className="flex items-center gap-1.5 bg-black/50 backdrop-blur-sm rounded-full px-2 py-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-white text-[10px] font-mono">{fmt(callTime)}</span>
-              </div>
-              {sharing && (
-                <div className="bg-indigo-500/80 backdrop-blur-sm rounded-full px-2 py-1">
-                  <span className="text-white text-[10px]">Compartilhando tela</span>
-                </div>
-              )}
-            </div>
-          </div>
-          {/* Status */}
-          <div className="px-3 py-2 bg-black/30">
-            <p className="text-[10px] font-mono text-emerald-400">Conectado P2P via STUN/TURN — Node.js Signaling Ativo</p>
-          </div>
-          {/* Controls */}
-          <div className="flex items-center justify-center gap-4 p-4">
-            <button onClick={() => setMuted(m => !m)}
-              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all ${muted ? "bg-rose-500 text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600"}`}>
-              {muted ? <MicOff size={16} /> : <Mic size={16} />}
-            </button>
-            <button onClick={endCall}
-              className="w-14 h-14 rounded-full bg-rose-500 flex items-center justify-center shadow-lg">
-              <PhoneOff size={20} className="text-white" />
-            </button>
-            <button onClick={() => setCamOff(c => !c)}
-              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all ${camOff ? "bg-rose-500 text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600"}`}>
-              {camOff ? <CameraOff size={16} /> : <Camera size={16} />}
-            </button>
-            <button onClick={() => setSharing(s => !s)}
-              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all ${sharing ? "bg-indigo-500 text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600"}`}>
-              <Monitor size={16} />
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -513,7 +266,6 @@ export function BurnoutSection({ isDark }: { isDark: boolean }) {
   const sub = isDark ? "text-slate-400" : "text-slate-500";
   const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
   const [dismissed, setDismissed] = useState(false);
-  const [anon, setAnon] = useState(true);
 
   const hoursToday = 8.3;
   const pct = Math.min(100, (hoursToday / 8) * 100);
@@ -564,29 +316,6 @@ export function BurnoutSection({ isDark }: { isDark: boolean }) {
           </div>
         </div>
       </div>
-
-      <div className={`${card} border rounded-xl p-3`}>
-        <div className="flex items-center justify-between mb-2">
-          <p className={`text-xs font-semibold ${text}`}>🏆 Leaderboard Ético</p>
-          <button onClick={() => setAnon(a => !a)} className={`text-[10px] px-2 py-0.5 rounded-full border transition-all ${anon ? "border-indigo-500/40 text-indigo-400 bg-indigo-500/10" : "border-slate-600 text-slate-400"}`}>
-            {anon ? "Anônimo ON" : "Anônimo OFF"}
-          </button>
-        </div>
-        <div className="space-y-2">
-          {LEADERBOARD.map((l, i) => (
-            <div key={i} className="flex items-center gap-3 py-2 border-b border-slate-700/30 last:border-0">
-              <span className={`text-sm font-bold flex-none w-6 text-center ${i === 0 ? "text-amber-400" : i === 1 ? "text-slate-300" : i === 2 ? "text-orange-600" : sub}`}>
-                {i + 1}
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className={`text-xs font-medium ${text} truncate`}>{anon ? l.codename : ["Lucas Inacio", "Carlos Souza", "Ana Mendes", "Mariana Silva"][i]}</p>
-                <p className={`text-[10px] ${sub}`}>{l.tasks} tarefas • {l.streak} dias de sequência</p>
-              </div>
-              <span className="text-xs font-mono font-bold text-indigo-400">{l.score}pts</span>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
@@ -622,7 +351,7 @@ export function BackupSection({ isDark }: { isDark: boolean }) {
                 <p className="text-xs text-slate-500">Gerado em: {new Date().toLocaleDateString("pt-BR")}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold text-slate-700 mb-1">Resumo da Sprint</p>
+                <p className="text-xs font-semibold text-slate-700 mb-1">Resumo da Semana</p>
                 <p className="text-xs text-slate-500">Tarefas: {tasks.length} | Concluídas: {done.length} | Atrasadas: {tasks.filter(isOverdue).length}</p>
               </div>
               <div>
@@ -705,87 +434,6 @@ export function OkrSection({ isDark }: { isDark: boolean }) {
           );
         })}
       </div>
-
-      <div className={`${card} border rounded-xl p-3`}>
-        <p className={`text-xs font-semibold ${text} mb-2`}>Revisão por Pares</p>
-        <div className="space-y-2">
-          {[
-            { reviewer: "Mariana Silva", task: "Corrigir vazamento de memória", quality: 4, adherence: 3, feedback: "Bom trabalho na identificação, poderia melhorar docs." },
-            { reviewer: "Carlos Souza", task: "Testes E2E Cypress", quality: 5, adherence: 5, feedback: "Excelente cobertura! Código limpo e bem estruturado." },
-          ].map((r, i) => (
-            <div key={i} className={`${isDark ? "bg-slate-700/40" : "bg-slate-100"} rounded-xl p-2.5`}>
-              <div className="flex items-center justify-between mb-1">
-                <span className={`text-xs font-medium ${text}`}>{r.reviewer}</span>
-                <div className="flex gap-0.5">{[...Array(5)].map((_, j) => <Star key={j} size={10} className={j < r.quality ? "text-amber-400 fill-amber-400" : "text-slate-600"} />)}</div>
-              </div>
-              <p className={`text-[10px] ${sub} mb-1`}>→ {r.task}</p>
-              <p className="text-[10px] text-slate-400 italic">"{r.feedback}"</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Governance ────────────────────────────────────────────────────
-export function GovSection({ isDark }: { isDark: boolean }) {
-  const text = isDark ? "text-slate-100" : "text-slate-900";
-  const sub = isDark ? "text-slate-400" : "text-slate-500";
-  const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
-  const roles = ["Admin", "Editor", "Revisor", "Visualizador"];
-
-  return (
-    <div className="space-y-3">
-      <div className={`${card} border rounded-xl p-3`}>
-        <p className={`text-xs font-semibold ${text} mb-2 flex items-center gap-1.5`}>
-          <Shield size={12} className="text-slate-400" /> Matriz de Papéis por Projeto
-        </p>
-        <div className="overflow-x-auto scrollbar-hide">
-          <table className="w-full min-w-[280px]">
-            <thead>
-              <tr>
-                <th className={`text-left text-[10px] ${sub} pb-1.5 font-medium`}>Membro</th>
-                {roles.map(r => <th key={r} className={`text-[10px] ${sub} pb-1.5 font-medium text-center`}>{r}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {TEAM_MEMBERS.map((m, i) => (
-                <tr key={m.id} className={`${i % 2 === 0 && isDark ? "bg-slate-700/20" : ""}`}>
-                  <td className={`text-xs ${text} py-1.5 pr-2`}>{m.name.split(" ")[0]}</td>
-                  {roles.map((_, j) => (
-                    <td key={j} className="text-center py-1.5">
-                      {j <= i % roles.length ? (
-                        <span className="inline-block w-4 h-4 rounded-full bg-indigo-500 text-white text-[8px] flex items-center justify-center">✓</span>
-                      ) : (
-                        <span className={`text-[10px] ${sub}`}>—</span>
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className={`${card} border rounded-xl p-3`}>
-        <p className={`text-xs font-semibold ${text} mb-2`}>Auditoria de Acessos</p>
-        {[
-          { user: "Lucas Inacio", ip: "192.168.1.42", action: "Editou tarefa", task: "Deploy em Produção", time: "09:15:32" },
-          { user: "Mariana Silva", ip: "10.0.0.7", action: "Visualizou", task: "Refatorar MinIO", time: "09:08:14" },
-          { user: "Carlos Souza", ip: "192.168.1.55", action: "Comentou", task: "Testes E2E", time: "08:55:01" },
-        ].map((a, i) => (
-          <div key={i} className="flex gap-2 py-2 border-b border-slate-700/30 last:border-0">
-            <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[9px] font-bold text-slate-300 flex-none">{a.user[0]}</div>
-            <div className="flex-1 min-w-0">
-              <p className={`text-xs font-medium ${text}`}>{a.user} <span className={`font-normal ${sub}`}>{a.action}</span></p>
-              <p className={`text-[10px] ${sub} truncate`}>{a.task}</p>
-              <p className="text-[9px] text-slate-600 font-mono">{a.ip} • {a.time}</p>
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
@@ -821,26 +469,6 @@ export function RulesSection({ isDark }: { isDark: boolean }) {
         <button className="w-full py-2 rounded-xl border border-dashed border-teal-500/30 text-teal-400 text-xs hover:bg-teal-500/10 transition-colors flex items-center justify-center gap-1.5">
           <Code2 size={11} /> Adicionar Nova Regra
         </button>
-      </div>
-
-      <div className={`${card} border rounded-xl p-3`}>
-        <p className={`text-xs font-semibold ${text} mb-2`}>Otimizador de Reuniões</p>
-        <p className={`text-xs ${sub} mb-2`}>Pauta da próxima reunião analisada:</p>
-        {[
-          { item: "Status do deploy AWS", time: "5 min", priority: "ALTA" },
-          { item: "Review do Design System", time: "8 min", priority: "MEDIA" },
-          { item: "Atualização de roadmap", time: "10 min", priority: "ALTA" },
-        ].map((i, idx) => (
-          <div key={idx} className="flex items-center gap-2 py-1.5 border-b border-slate-700/30 last:border-0">
-            <span className={`text-[10px] font-mono ${i.priority === "ALTA" ? "text-rose-400" : "text-amber-400"} flex-none`}>{i.priority}</span>
-            <span className={`text-xs flex-1 ${text}`}>{i.item}</span>
-            <span className="text-[10px] font-mono text-indigo-400">{i.time}</span>
-          </div>
-        ))}
-        <div className="mt-2 pt-2 border-t border-slate-700/30 flex items-center justify-between">
-          <span className={`text-xs font-semibold ${text}`}>Total sugerido:</span>
-          <span className="text-sm font-bold text-emerald-400">23 min</span>
-        </div>
       </div>
     </div>
   );

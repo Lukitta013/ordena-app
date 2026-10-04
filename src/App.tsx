@@ -1,23 +1,18 @@
 import { useState, useEffect, useMemo } from "react";
 import {
-  CheckSquare, Folder, Calendar, BarChart2, Settings,
-  Sun, Moon, Monitor, ChevronRight, ChevronLeft,
-  ArrowLeft, Bell, Plus, LogOut, User,
-  MapPin, Repeat, AlertCircle, Link2, Cpu,
-  TrendingUp, Clock, Heart, Target, Shield,
-  RefreshCw, HardDrive, Wrench, Lock, Copy, Mic, Search, Users, Video, Moon as MoonIcon,
+  CheckSquare, Folder, Calendar, BarChart2, Settings, Sun, Moon, Monitor, ChevronRight, ArrowLeft, Bell, Plus, LogOut, MapPin, Repeat, AlertCircle, Link2, TrendingUp, Clock, Heart, Target, RefreshCw, HardDrive, Wrench, Copy, Search, Moon as MoonIcon,
 } from "lucide-react";
 import TarefasHome from "./telas/tarefas";
 import { TaskProvider, useTasks, isDone, isOverdue, sameDay } from "./telas/tarefas/context/TaskContext";
 import AuthFlow from "./telas/login";
 import {
-  GpsSection, DepsSection, DupSection, CalSection, AudioSection,
-  AlertsSection, SearchSection, RecurSection, AssignSection,
+  GpsSection, DupSection, CalSection,
+  AlertsSection, SearchSection, RecurSection,
 } from "./telas/agenda";
 import {
-  BiSection, GanttSection, TelemetrySection, PredictSection, CapacitySection,
-  LockSection, WebRTCSection, BurnoutSection, BackupSection, OkrSection,
-  GovSection, RulesSection, DailySection,
+  BiSection, GanttSection, TelemetrySection, PredictSection,
+  BurnoutSection, BackupSection, OkrSection,
+  RulesSection, DailySection,
 } from "./telas/analises";
 
 // ── Types ─────────────────────────────────────────────────────────
@@ -116,13 +111,7 @@ const PAGES: Record<string, { title: string; C: React.ComponentType<{ isDark: bo
   // Projetos
   gantt:       { title: "Cronograma Gantt", C: GanttSection },
   projecoes:   { title: "Projeções", C: PredictSection },
-  capacidade:  { title: "Capacidade da Equipe", C: CapacitySection },
-  dependencias:{ title: "Dependências", C: DepsSection },
   templates:   { title: "Duplicação e Templates", C: DupSection },
-  atribuicao:  { title: "Atribuição e Conflitos", C: AssignSection },
-  comentarios: { title: "Comentários e Áudio", C: AudioSection },
-  lock:        { title: "Edição Simultânea", C: LockSection },
-  webrtc:      { title: "Chamada de Vídeo", C: WebRTCSection },
   // Agenda
   recorrencia: { title: "Tarefas Recorrentes", C: RecurSection },
   geofencing:  { title: "Lembretes por Local", C: GpsSection },
@@ -133,12 +122,11 @@ const PAGES: Record<string, { title: string; C: React.ComponentType<{ isDark: bo
   avancado:    { title: "Painel de Produtividade", C: BiSection },
   tempo:       { title: "Tempo e Estimativas", C: TelemetrySection },
   "bem-estar": { title: "Bem-estar e Carga Diária", C: BurnoutSection },
-  metas:       { title: "Metas e Revisões", C: OkrSection },
+  metas:       { title: "Metas Pessoais", C: OkrSection },
   fechamento:  { title: "Fechamento Diário (D+1)", C: DailySection },
   // Ajustes
   automacoes:  { title: "Automações", C: RulesSection },
   backup:      { title: "Backup e Exportação", C: BackupSection },
-  admin:       { title: "Administração e Permissões", C: GovSection },
 };
 
 function SubPageView({ id, theme, onBack }: {
@@ -225,20 +213,10 @@ function ProjetosScreen({
       <Block title="Planejamento">
         <SectionRow icon={Calendar} label="Cronograma Gantt" sub="Linhas do tempo e dependências" onPress={() => setSubPage("gantt")} />
         <SectionRow icon={TrendingUp} label="Projeções" sub="Estimativas de conclusão" onPress={() => setSubPage("projecoes")} />
-        <SectionRow icon={Cpu} label="Capacidade da Equipe" sub="Distribuição de carga" onPress={() => setSubPage("capacidade")} />
-        <SectionRow icon={Shield} label="Administração e Permissões" sub="Membros e papéis" onPress={() => setSubPage("admin")} />
       </Block>
 
       <Block title="Organização">
-        <SectionRow icon={Lock} label="Dependências" sub="Bloqueio até concluir a anterior" onPress={() => setSubPage("dependencias")} />
         <SectionRow icon={Copy} label="Duplicação e Templates" sub="Rotinas reutilizáveis" onPress={() => setSubPage("templates")} />
-        <SectionRow icon={Users} label="Atribuição e Conflitos" sub="Aceitar, recusar, reagendar" onPress={() => setSubPage("atribuicao")} />
-      </Block>
-
-      <Block title="Colaboração">
-        <SectionRow icon={Mic} label="Comentários e Áudio" sub="Anexos e gravações" onPress={() => setSubPage("comentarios")} />
-        <SectionRow icon={RefreshCw} label="Edição Simultânea" sub="Conflitos e histórico de escopo" onPress={() => setSubPage("lock")} />
-        <SectionRow icon={Video} label="Chamada de Vídeo" sub="Alinhamento rápido" onPress={() => setSubPage("webrtc")} />
       </Block>
     </div>
   );
@@ -404,7 +382,7 @@ function AnalisesScreen({ theme }: { theme: "dark" | "light" }) {
       <Block title="Aprofundar">
         <SectionRow icon={Clock} label="Tempo e Estimativas" sub="Calibração de esforço" onPress={() => setSubPage("tempo")} />
         <SectionRow icon={Heart} label="Bem-estar e Carga Diária" sub="Burnout e pausas" onPress={() => setSubPage("bem-estar")} />
-        <SectionRow icon={Target} label="Metas e Revisões" sub="OKRs e revisão por pares" onPress={() => setSubPage("metas")} />
+        <SectionRow icon={Target} label="Metas Pessoais" sub="Progresso diário e semanal" onPress={() => setSubPage("metas")} />
         <SectionRow icon={MoonIcon} label="Fechamento Diário" sub="Resumo do dia e plano D+1" onPress={() => setSubPage("fechamento")} />
       </Block>
     </div>
@@ -494,11 +472,6 @@ function AjustesScreen({
         <SectionRow icon={RefreshCw} label="Sincronização e Offline" sub="SQLite · fila de sincronização" onPress={() => {}} />
         <SectionRow icon={Wrench} label="Automações" sub="Regras e gatilhos" onPress={() => setSubPage("automacoes")} />
         <SectionRow icon={HardDrive} label="Backup e Exportação" sub="Nuvem e relatório PDF" onPress={() => setSubPage("backup")} />
-      </Block>
-
-      {/* Segurança block */}
-      <Block title="Segurança e Governança">
-        <SectionRow icon={User} label="Administração e Permissões" sub="Papéis e auditoria de acessos" onPress={() => setSubPage("admin")} />
       </Block>
 
       {/* Logout */}
