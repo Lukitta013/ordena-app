@@ -50,20 +50,6 @@ function useTheme() {
   return { mode, setMode, isDark: resolved === "dark", theme: resolved };
 }
 
-// ── US Badge ──────────────────────────────────────────────────────
-
-function USBadge({ codes, show }: { codes: string; show: boolean }) {
-  if (!show) return null;
-  return (
-    <span
-      className="font-mono text-[10px] px-1.5 py-0.5 rounded border leading-none flex-none"
-      style={{ color: "var(--tertiary)", borderColor: "var(--border)", background: "var(--sunken)" }}
-    >
-      {codes}
-    </span>
-  );
-}
-
 // ── Section row (block link) ──────────────────────────────────────
 
 function SectionRow({
@@ -110,12 +96,7 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
 
 // ── Back header ───────────────────────────────────────────────────
 
-function BackHeader({ title, onBack, usCodes, showUS }: {
-  title: string;
-  onBack: () => void;
-  usCodes?: string;
-  showUS?: boolean;
-}) {
+function BackHeader({ title, onBack }: { title: string; onBack: () => void }) {
   return (
     <div
       className="flex items-center gap-2 px-4 py-3 sticky top-0 z-10 flex-none"
@@ -125,49 +106,48 @@ function BackHeader({ title, onBack, usCodes, showUS }: {
         <ArrowLeft size={20} strokeWidth={1.5} />
       </button>
       <p className="font-semibold text-[17px] flex-1" style={{ color: "var(--text)" }}>{title}</p>
-      {usCodes && <USBadge codes={usCodes} show={!!showUS} />}
     </div>
   );
 }
 
 // ── Sub-páginas: cada linha de menu abre exatamente uma seção ─────
 
-const PAGES: Record<string, { title: string; us: string; C: React.ComponentType<{ isDark: boolean }> }> = {
+const PAGES: Record<string, { title: string; C: React.ComponentType<{ isDark: boolean }> }> = {
   // Projetos
-  gantt:       { title: "Cronograma Gantt",          us: "US22",      C: GanttSection },
-  projecoes:   { title: "Projeções",                 us: "US23",      C: PredictSection },
-  capacidade:  { title: "Capacidade da Equipe",      us: "US24",      C: CapacitySection },
-  dependencias:{ title: "Dependências",              us: "US07",      C: DepsSection },
-  templates:   { title: "Duplicação e Templates",    us: "US08",      C: DupSection },
-  atribuicao:  { title: "Atribuição e Conflitos",    us: "US14",      C: AssignSection },
-  comentarios: { title: "Comentários e Áudio",       us: "US10",      C: AudioSection },
-  lock:        { title: "Edição Simultânea",         us: "US20",      C: LockSection },
-  webrtc:      { title: "Chamada de Vídeo",          us: "US21",      C: WebRTCSection },
+  gantt:       { title: "Cronograma Gantt", C: GanttSection },
+  projecoes:   { title: "Projeções", C: PredictSection },
+  capacidade:  { title: "Capacidade da Equipe", C: CapacitySection },
+  dependencias:{ title: "Dependências", C: DepsSection },
+  templates:   { title: "Duplicação e Templates", C: DupSection },
+  atribuicao:  { title: "Atribuição e Conflitos", C: AssignSection },
+  comentarios: { title: "Comentários e Áudio", C: AudioSection },
+  lock:        { title: "Edição Simultânea", C: LockSection },
+  webrtc:      { title: "Chamada de Vídeo", C: WebRTCSection },
   // Agenda
-  recorrencia: { title: "Tarefas Recorrentes",       us: "US14",      C: RecurSection },
-  geofencing:  { title: "Lembretes por Local",       us: "US09",      C: GpsSection },
-  alertas:     { title: "Alertas de Prazo",          us: "US15",      C: AlertsSection },
-  integracoes: { title: "Integrações",               us: "US10–US13", C: CalSection },
-  busca:       { title: "Busca e Auditoria",         us: "US12",      C: SearchSection },
+  recorrencia: { title: "Tarefas Recorrentes", C: RecurSection },
+  geofencing:  { title: "Lembretes por Local", C: GpsSection },
+  alertas:     { title: "Alertas de Prazo", C: AlertsSection },
+  integracoes: { title: "Integrações", C: CalSection },
+  busca:       { title: "Busca e Auditoria", C: SearchSection },
   // Análises
-  avancado:    { title: "Painel de Produtividade",   us: "US22",      C: BiSection },
-  tempo:       { title: "Tempo e Estimativas",       us: "US16",      C: TelemetrySection },
-  "bem-estar": { title: "Bem-estar e Carga Diária",  us: "US26",      C: BurnoutSection },
-  metas:       { title: "Metas e Revisões",          us: "US27",      C: OkrSection },
-  fechamento:  { title: "Fechamento Diário (D+1)",   us: "US27",      C: DailySection },
+  avancado:    { title: "Painel de Produtividade", C: BiSection },
+  tempo:       { title: "Tempo e Estimativas", C: TelemetrySection },
+  "bem-estar": { title: "Bem-estar e Carga Diária", C: BurnoutSection },
+  metas:       { title: "Metas e Revisões", C: OkrSection },
+  fechamento:  { title: "Fechamento Diário (D+1)", C: DailySection },
   // Ajustes
-  automacoes:  { title: "Automações",                us: "US26",      C: RulesSection },
-  backup:      { title: "Backup e Exportação",       us: "US23",      C: BackupSection },
-  admin:       { title: "Administração e Permissões",us: "US25",      C: GovSection },
+  automacoes:  { title: "Automações", C: RulesSection },
+  backup:      { title: "Backup e Exportação", C: BackupSection },
+  admin:       { title: "Administração e Permissões", C: GovSection },
 };
 
-function SubPageView({ id, theme, showUS, onBack }: {
-  id: string; theme: "dark" | "light"; showUS: boolean; onBack: () => void;
+function SubPageView({ id, theme, onBack }: {
+  id: string; theme: "dark" | "light"; onBack: () => void;
 }) {
-  const { title, us, C } = PAGES[id];
+  const { title, C } = PAGES[id];
   return (
     <div className="flex flex-col h-full" style={{ background: "var(--bg)" }}>
-      <BackHeader title={title} usCodes={us} showUS={showUS} onBack={onBack} />
+      <BackHeader title={title} onBack={onBack} />
       <div className="flex-1 overflow-y-auto px-4 py-4">
         <C isDark={theme === "dark"} />
       </div>
@@ -180,10 +160,9 @@ function SubPageView({ id, theme, showUS, onBack }: {
 // ── TarefasScreen ─────────────────────────────────────────────────
 
 function TarefasScreen({
-  theme, showUS,
+  theme,
 }: {
   theme: "dark" | "light";
-  showUS: boolean;
 }) {
   return (
     <div className="h-full">
@@ -206,15 +185,14 @@ const PROJETOS_LIST = [
 ];
 
 function ProjetosScreen({
-  theme, showUS,
+  theme,
 }: {
   theme: "dark" | "light";
-  showUS: boolean;
 }) {
   const [subPage, setSubPage] = useState<string | null>(null);
   const { tasks } = useTasks();
 
-  if (subPage) return <SubPageView id={subPage} theme={theme} showUS={showUS} onBack={() => setSubPage(null)} />;
+  if (subPage) return <SubPageView id={subPage} theme={theme} onBack={() => setSubPage(null)} />;
 
   return (
     <div className="h-full overflow-y-auto scrollbar-hide pb-6" style={{ background: "var(--bg)" }}>
@@ -222,7 +200,6 @@ function ProjetosScreen({
       <div className="px-4 pt-5 pb-4">
         <div className="flex items-center gap-2 mb-1">
           <h1 className="font-semibold text-[22px]" style={{ color: "var(--text)" }}>Projetos</h1>
-          <USBadge codes="US17–US21" show={showUS} />
         </div>
         <p className="text-[13px]" style={{ color: "var(--sub)" }}>8 categorias ativas</p>
       </div>
@@ -318,7 +295,7 @@ function MiniCalendar({ taskDays }: { taskDays: Set<number> }) {
   );
 }
 
-function AgendaScreen({ theme, showUS, onOpenTasks }: { theme: "dark" | "light"; showUS: boolean; onOpenTasks: () => void }) {
+function AgendaScreen({ theme, onOpenTasks }: { theme: "dark" | "light"; onOpenTasks: () => void }) {
   const [subPage, setSubPage] = useState<string | null>(null);
   const { tasks } = useTasks();
   const now = new Date();
@@ -331,7 +308,7 @@ function AgendaScreen({ theme, showUS, onOpenTasks }: { theme: "dark" | "light";
     .filter(t => !isDone(t) && sameDay(t.dueDate, now))
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
-  if (subPage) return <SubPageView id={subPage} theme={theme} showUS={showUS} onBack={() => setSubPage(null)} />;
+  if (subPage) return <SubPageView id={subPage} theme={theme} onBack={() => setSubPage(null)} />;
 
   return (
     <div className="h-full overflow-y-auto scrollbar-hide pb-6" style={{ background: "var(--bg)" }}>
@@ -339,7 +316,6 @@ function AgendaScreen({ theme, showUS, onOpenTasks }: { theme: "dark" | "light";
       <div className="px-4 pt-5 pb-2">
         <div className="flex items-center gap-2 mb-1">
           <h1 className="font-semibold text-[22px]" style={{ color: "var(--text)" }}>Agenda</h1>
-          <USBadge codes="US08–US15" show={showUS} />
         </div>
       </div>
 
@@ -380,11 +356,11 @@ function AgendaScreen({ theme, showUS, onOpenTasks }: { theme: "dark" | "light";
 
 // ── AnalisesScreen ────────────────────────────────────────────────
 
-function AnalisesScreen({ theme, showUS }: { theme: "dark" | "light"; showUS: boolean }) {
+function AnalisesScreen({ theme }: { theme: "dark" | "light" }) {
   const [subPage, setSubPage] = useState<string | null>(null);
   const { tasks } = useTasks();
 
-  if (subPage) return <SubPageView id={subPage} theme={theme} showUS={showUS} onBack={() => setSubPage(null)} />;
+  if (subPage) return <SubPageView id={subPage} theme={theme} onBack={() => setSubPage(null)} />;
 
   return (
     <div className="h-full overflow-y-auto scrollbar-hide pb-6" style={{ background: "var(--bg)" }}>
@@ -392,7 +368,6 @@ function AnalisesScreen({ theme, showUS }: { theme: "dark" | "light"; showUS: bo
       <div className="px-4 pt-5 pb-3">
         <div className="flex items-center gap-2 mb-1">
           <h1 className="font-semibold text-[22px]" style={{ color: "var(--text)" }}>Análises</h1>
-          <USBadge codes="US22–US27" show={showUS} />
         </div>
         <p className="text-[13px]" style={{ color: "var(--sub)" }}>Todas as suas tarefas</p>
       </div>
@@ -415,7 +390,6 @@ function AnalisesScreen({ theme, showUS }: { theme: "dark" | "light"; showUS: bo
       <div className="mx-4 rounded-xl overflow-hidden mb-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
         <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border)" }}>
           <p className="font-semibold text-[14px]" style={{ color: "var(--text)" }}>Análises completas</p>
-          <USBadge codes="US22" show={showUS} />
         </div>
         <button
           onClick={() => setSubPage("avancado")}
@@ -440,12 +414,10 @@ function AnalisesScreen({ theme, showUS }: { theme: "dark" | "light"; showUS: bo
 // ── AjustesScreen ─────────────────────────────────────────────────
 
 function AjustesScreen({
-  themeMode, setThemeMode, showUSMarkers, setShowUSMarkers, onLogout, isDark,
+  themeMode, setThemeMode, onLogout, isDark,
 }: {
   themeMode: ThemeMode;
   setThemeMode: (t: ThemeMode) => void;
-  showUSMarkers: boolean;
-  setShowUSMarkers: (v: boolean) => void;
   onLogout: () => void;
   isDark: boolean;
 }) {
@@ -456,7 +428,7 @@ function AjustesScreen({
   ];
   const [subPage, setSubPage] = useState<string | null>(null);
   if (subPage)
-    return <SubPageView id={subPage} theme={isDark ? "dark" : "light"} showUS={showUSMarkers} onBack={() => setSubPage(null)} />;
+    return <SubPageView id={subPage} theme={isDark ? "dark" : "light"} onBack={() => setSubPage(null)} />;
 
   return (
     <div className="h-full overflow-y-auto scrollbar-hide pb-8" style={{ background: "var(--bg)" }}>
@@ -513,36 +485,6 @@ function AjustesScreen({
               );
             })}
           </div>
-        </div>
-
-        <div
-          className="flex items-center justify-between px-4 py-3"
-          style={{ borderTop: "1px solid var(--border)" }}
-        >
-          <div>
-            <p className="text-[14px] font-medium" style={{ color: "var(--text)" }}>Marcadores de entrega</p>
-            <p className="text-[12px] mt-0.5" style={{ color: "var(--tertiary)" }}>
-              Mostra a User Story de origem de cada recurso
-            </p>
-          </div>
-          <button
-            onClick={() => setShowUSMarkers(!showUSMarkers)}
-            className="rounded-full transition-colors flex-none"
-            style={{
-              width: 44, height: 26,
-              background: showUSMarkers ? "var(--accent)" : "var(--border)",
-              position: "relative",
-            }}
-          >
-            <span
-              className="absolute top-[3px] rounded-full transition-all"
-              style={{
-                width: 20, height: 20,
-                background: "#fff",
-                left: showUSMarkers ? 21 : 3,
-              }}
-            />
-          </button>
         </div>
       </Block>
 
@@ -679,7 +621,6 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => localStorage.getItem("ordena-auth") === "1");
   useEffect(() => { localStorage.setItem("ordena-auth", isAuthenticated ? "1" : "0"); }, [isAuthenticated]);
   const [navTab, setNavTab] = useState<NavTab>("tarefas");
-  const [showUSMarkers, setShowUSMarkers] = useState(true);
 
   const handleNavChange = (tab: NavTab) => setNavTab(tab);
 
@@ -713,16 +654,14 @@ export default function App() {
   // Main app: full screen, responsive sidebar/bottom nav
   const renderScreen = () => {
     switch (navTab) {
-      case "tarefas":  return <TarefasScreen  theme={theme} showUS={showUSMarkers} />;
-      case "projetos": return <ProjetosScreen  theme={theme} showUS={showUSMarkers} />;
-      case "agenda":   return <AgendaScreen    theme={theme} showUS={showUSMarkers} onOpenTasks={() => setNavTab("tarefas")} />;
-      case "analises": return <AnalisesScreen  theme={theme} showUS={showUSMarkers} />;
+      case "tarefas":  return <TarefasScreen  theme={theme} />;
+      case "projetos": return <ProjetosScreen  theme={theme} />;
+      case "agenda":   return <AgendaScreen    theme={theme} onOpenTasks={() => setNavTab("tarefas")} />;
+      case "analises": return <AnalisesScreen  theme={theme} />;
       case "ajustes":  return (
         <AjustesScreen
           themeMode={themeMode}
           setThemeMode={setThemeMode}
-          showUSMarkers={showUSMarkers}
-          setShowUSMarkers={setShowUSMarkers}
           onLogout={handleLogout}
           isDark={isDark}
         />
