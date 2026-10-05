@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Plus, Search, X, ChevronRight, ChevronDown, Calendar, Filter,
-  Bookmark, FileText, CloudOff, Pencil, Trash2,
+  Bookmark, FileText, Pencil, Trash2,
   CheckCircle2, Circle, Clock,
   GraduationCap, Briefcase, Wallet, HeartPulse, User, Gamepad2, Wrench, FolderKanban,
   type LucideIcon,
@@ -392,11 +392,6 @@ export function TaskCard({
               <Clock size={10} /> {task.effort}
             </span>
           )}
-          {task.syncPending && (
-            <span title="Aguardando sincronização">
-              <CloudOff size={10} className="text-[#9AA0AC]" />
-            </span>
-          )}
         </div>
 
         {/* Progress bar */}
@@ -454,10 +449,15 @@ function TaskFormModal({ onClose, isDark, initial, onCreated }: {
     setSubtaskInput("");
   };
 
+  const [titleError, setTitleError] = useState(false);
+
   const submit = () => {
-    if (!form.title.trim()) return;
+    // Lê o valor direto do campo: com o teclado do Android aberto, a última palavra pode ainda não ter chegado ao estado
+    const title = (titleRef.current?.value ?? form.title).trim();
+    if (!title) { setTitleError(true); titleRef.current?.focus(); return; }
     createTask({
       ...form,
+      title,
       dueDate: form.dueDate || toLocalInput(new Date(Date.now() + 7 * 864e5)),
       quadrant: previewQ,
       subtasks: initSubs,
@@ -468,18 +468,19 @@ function TaskFormModal({ onClose, isDark, initial, onCreated }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm">
-      <div className={`w-full max-w-[390px] rounded-t-3xl border-t shadow-2xl ${isDark ? "bg-[#171A21] border-[#262B36]" : "bg-white border-slate-200"}`}>
+      <div className={`w-full max-w-[390px] max-h-[95dvh] flex flex-col rounded-t-3xl border-t shadow-2xl ${isDark ? "bg-[#171A21] border-[#262B36]" : "bg-white border-slate-200"}`}>
         <div className="w-10 h-1 bg-[#262B36] rounded-full mx-auto mt-3 mb-4" />
         <div className={`flex items-center justify-between px-5 pb-3 border-b ${isDark ? "border-[#262B36]" : "border-slate-100"}`}>
           <h2 className={`font-semibold text-base ${isDark ? "text-[#E8EAED]" : "text-[#141821]"}`}>Nova Tarefa</h2>
           <button onClick={onClose} className="text-[#9AA0AC] hover:text-[#E8EAED] transition-colors"><X size={20} /></button>
         </div>
 
-        <div className="px-5 py-4 space-y-3 overflow-y-auto scrollbar-hide" style={{ maxHeight: "68vh" }}>
+        <div className="flex-1 min-h-0 px-5 py-4 space-y-3 overflow-y-auto scrollbar-hide">
           <div>
             <label className={lbl}>Título *</label>
             <input ref={titleRef} className={inp} placeholder="O que precisa ser feito?" value={form.title}
-              onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+              onChange={e => { setTitleError(false); setForm(f => ({ ...f, title: e.target.value })); }} />
+            {titleError && <p className="text-xs text-rose-400 mt-1">Dê um título para a tarefa.</p>}
           </div>
           <div>
             <label className={lbl}>Descrição</label>
@@ -573,12 +574,12 @@ function TaskFormModal({ onClose, isDark, initial, onCreated }: {
           </div>
         </div>
 
-        <div className={`px-5 pb-7 pt-3 flex gap-3 border-t ${isDark ? "border-[#262B36]" : "border-slate-100"}`}>
+        <div className={`flex-none px-5 pb-7 pt-3 flex gap-3 border-t ${isDark ? "border-[#262B36]" : "border-slate-100"}`}>
           <button onClick={onClose} className={`flex-1 py-3 rounded-2xl border text-sm font-medium transition-colors ${isDark ? "border-[#262B36] text-[#9AA0AC] hover:bg-[#1E222B]" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
             Cancelar
           </button>
-          <button onClick={submit} disabled={!form.title.trim()}
-            className="flex-1 py-3 rounded-2xl bg-[#4F6BED] hover:bg-[#3F5BD9] text-white text-sm font-semibold disabled:opacity-40 transition-all">
+          <button onClick={submit}
+            className="flex-1 py-3 rounded-2xl bg-[#4F6BED] hover:bg-[#3F5BD9] text-white text-sm font-semibold transition-all">
             Criar Tarefa
           </button>
         </div>
@@ -604,7 +605,10 @@ export function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDa
   const save = () => {
     // Não regrava subtasks: elas podem ter mudado enquanto o modo de edição estava aberto
     const { subtasks: _ignored, ...fields } = draft;
-    updateTask(task.id, { ...fields, quadrant: deriveQuadrant(draft.priority, draft.dueDate) });
+    const title = draft.title.trim();
+    if (!title) { window.alert("Dê um título para a tarefa."); return; }
+    const dueDate = draft.dueDate || task.dueDate;
+    updateTask(task.id, { ...fields, title, dueDate, quadrant: deriveQuadrant(draft.priority, dueDate) });
     setIsEditing(false);
     setDirty(false);
   };
@@ -660,7 +664,7 @@ export function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDa
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm">
       <div className={`w-full max-w-[390px] rounded-t-3xl border-t shadow-2xl flex flex-col ${isDark ? "bg-[#171A21] border-[#262B36]" : "bg-white border-slate-200"}`}
-        style={{ maxHeight: "88vh" }}>
+        style={{ maxHeight: "88dvh" }}>
         <div className="w-10 h-1 bg-[#262B36] rounded-full mx-auto mt-3 mb-3 flex-none" />
 
         {/* Header */}
@@ -776,17 +780,21 @@ export function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDa
             )}
           </div>
 
+          {!isEditing && (
+            <button onClick={() => updateTask(task.id, { status: task.status === "Concluída" ? "Pendente" : "Concluída" })}
+              className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-colors ${task.status === "Concluída"
+                ? isDark ? "border border-[#262B36] text-[#9AA0AC]" : "border border-slate-200 text-slate-500"
+                : "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"}`}>
+              {task.status === "Concluída" ? <><Circle size={15} /> Reabrir tarefa</> : <><CheckCircle2 size={15} /> Marcar como concluída</>}
+            </button>
+          )}
+
           {/* Subtasks */}
           <div className={`p-3 rounded-xl border ${isDark ? "bg-[#1E222B] border-[#262B36]" : "bg-slate-50 border-slate-100"}`}>
             <p className={`text-xs font-semibold mb-3 ${isDark ? "text-[#E8EAED]" : "text-[#141821]"}`}>Subtarefas</p>
             <SubtaskTree task={task} />
           </div>
 
-          {task.syncPending && (
-            <div className="flex items-center gap-1.5 text-xs text-[#9AA0AC]">
-              <CloudOff size={12} /> Aguardando sincronização com o servidor
-            </div>
-          )}
         </div>
 
         {isEditing && (
