@@ -18,23 +18,10 @@ import {
 
 // ── Types ─────────────────────────────────────────────────────────
 
-export type Project =
-  | "Faculdade"
-  | "Trabalho"
-  | "Finanças"
-  | "Saúde"
-  | "Pessoal"
-  | "Lazer"
-  | "Manutenção"
-  | "Projetos";
+export type Project = string;
 
 export type Priority = "Alta" | "Média" | "Baixa";
-export type Status =
-  | "Pendente"
-  | "Em Andamento"
-  | "Em Revisão"
-  | "Bloqueada"
-  | "Concluída";
+export type Status = string;
 export type Quadrant = "Q1" | "Q2" | "Q3" | "Q4";
 
 export type AppTask = {
@@ -55,6 +42,29 @@ export type AppTask = {
 
 // ── Helpers ───────────────────────────────────────────────────────
 
+export type Category = { name: string; desc: string; color: string; start?: string; end?: string };
+export type StatusDef = { name: string; color: string };
+
+// Não podem ser excluídas: recebem as tarefas de categorias/status removidos, e "Concluída" marca a tarefa como feita
+export const FALLBACK_CATEGORY = "Pessoal";
+export const FIXED_STATUSES = ["Pendente", "Concluída"];
+
+const DEFAULT_DESCS: Record<string, string> = {
+  Faculdade: "Disciplinas e trabalhos", Trabalho: "Projetos profissionais", Finanças: "Orçamento e contas",
+  Saúde: "Rotina e bem-estar", Pessoal: "Metas pessoais", Lazer: "Entretenimento",
+  Manutenção: "Casa e equipamentos", Projetos: "Iniciativas diversas",
+};
+
+const DEFAULT_STATUSES: StatusDef[] = [
+  { name: "Pendente", color: "#94A3B8" },
+  { name: "Em Andamento", color: "#60A5FA" },
+  { name: "Em Revisão", color: "#A78BFA" },
+  { name: "Bloqueada", color: "#FB7185" },
+  { name: "Concluída", color: "#34D399" },
+];
+
+// Mapas lidos pelos componentes; o TaskProvider os mantém iguais às listas salvas
+export const STATUS_COLORS: Record<string, string> = {};
 export const PROJECT_COLORS: Record<Project, string> = {
   Faculdade: "#6366F1",
   Trabalho:  "#3B82F6",
@@ -65,8 +75,12 @@ export const PROJECT_COLORS: Record<Project, string> = {
   Manutenção:"#0EA5E9",
   Projetos:  "#8B5CF6",
 };
-// Cores escolhidas pelo usuário em Projetos sobrescrevem as padrão
-try { Object.assign(PROJECT_COLORS, JSON.parse(localStorage.getItem("ordena-cores") ?? "{}")); } catch { /* usa as padrão */ }
+const DEFAULT_CATEGORIES: Category[] = Object.entries(PROJECT_COLORS)
+  .map(([name, color]) => ({ name, desc: DEFAULT_DESCS[name] ?? "", color }));
+
+const load = <T,>(key: string, fallback: T): T => {
+  try { return JSON.parse(localStorage.getItem(key) ?? "") as T; } catch { return fallback; }
+};
 
 // Ordem dentro do quadrante: atrasadas primeiro, depois prazo mais próximo, depois menor esforço; concluídas no fim
 export const byUrgency = (a: AppTask, b: AppTask) =>
@@ -308,7 +322,12 @@ type TaskCtx = {
   removeSubtaskFn: (taskId: string, stId: string) => void;
   toggleSubtaskFn: (taskId: string, stId: string) => void;
   dismissToast: () => void;
-  setProjectColor: (p: Project, color: string) => void;
+  categories: Category[];
+  saveCategory: (oldName: string | null, cat: Category) => void;
+  removeCategory: (name: string) => void;
+  statuses: StatusDef[];
+  saveStatus: (oldName: string | null, st: StatusDef) => void;
+  removeStatus: (name: string) => void;
 };
 
 const Ctx = createContext<TaskCtx | null>(null);
@@ -325,12 +344,31 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   });
   useEffect(() => { localStorage.setItem("ordena-tasks", JSON.stringify(tasks)); }, [tasks]);
   const [toast, setToast] = useState<ToastMsg | null>(null);
-  const [, setColorsVersion] = useState(0);
-  const setProjectColor = useCallback((p: Project, color: string) => {
-    PROJECT_COLORS[p] = color;
-    const saved = JSON.parse(localStorage.getItem("ordena-cores") ?? "{}");
-    localStorage.setItem("ordena-cores", JSON.stringify({ ...saved, [p]: color }));
-    setColorsVersion(v => v + 1);
+  const [categories, setCategories] = useState<Category[]>(() => load("ordena-categorias", DEFAULT_CATEGORIES));
+  const [statuses, setStatuses] = useState<StatusDef[]>(() => load("ordena-status", DEFAULT_STATUSES));
+  useEffect(() => { localStorage.setItem("ordena-categorias", JSON.stringify(categories)); }, [categories]);
+  useEffect(() => { localStorage.setItem("ordena-status", JSON.stringify(statuses)); }, [statuses]);
+  categories.forEach(c => { PROJECT_COLORS[c.name] = c.color; });
+  statuses.forEach(st => { STATUS_COLORS[st.name] = st.color; });
+
+  // Criar (oldName null) ou editar; renomear leva as tarefas junto
+  const saveCategory = useCallback((oldName: string | null, cat: Category) => {
+    setCategories(prev => oldName === null ? [...prev, cat] : prev.map(c => c.name === oldName ? cat : c));
+    if (oldName && oldName !== cat.name) setTasks(prev => prev.map(t => t.project === oldName ? { ...t, project: cat.name } : t));
+  }, []);
+  const removeCategory = useCallback((name: string) => {
+    if (name === FALLBACK_CATEGORY) return;
+    setCategories(prev => prev.filter(c => c.name !== name));
+    setTasks(prev => prev.map(t => t.project === name ? { ...t, project: FALLBACK_CATEGORY } : t));
+  }, []);
+  const saveStatus = useCallback((oldName: string | null, st: StatusDef) => {
+    setStatuses(prev => oldName === null ? [...prev, st] : prev.map(x => x.name === oldName ? st : x));
+    if (oldName && oldName !== st.name) setTasks(prev => prev.map(t => t.status === oldName ? { ...t, status: st.name } : t));
+  }, []);
+  const removeStatus = useCallback((name: string) => {
+    if (FIXED_STATUSES.includes(name)) return;
+    setStatuses(prev => prev.filter(x => x.name !== name));
+    setTasks(prev => prev.map(t => t.status === name ? { ...t, status: "Pendente" } : t));
   }, []);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -411,7 +449,9 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       tasks, toast,
       createTask, updateTask, deleteTask, restoreTask,
       addSubtaskFn, updateSubtaskFn, removeSubtaskFn, toggleSubtaskFn,
-      dismissToast, setProjectColor,
+      dismissToast,
+      categories, saveCategory, removeCategory,
+      statuses, saveStatus, removeStatus,
     }}>
       {children}
     </Ctx.Provider>

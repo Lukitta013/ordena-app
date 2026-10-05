@@ -1,9 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import {
-  CheckSquare, Folder, Calendar, BarChart2, Settings, Sun, Moon, Monitor, ChevronLeft, ChevronRight, ArrowLeft, Plus, LogOut, MapPin, Repeat, AlertCircle, Link2, TrendingUp, Clock, Heart, Target, HardDrive, Wrench, Copy, Search, Moon as MoonIcon,
+  CheckSquare, Folder, Calendar, BarChart2, Settings, Sun, Moon, Monitor, Trash2, Pencil, ChevronLeft, ChevronRight, ArrowLeft, Plus, LogOut, MapPin, Repeat, AlertCircle, Link2, TrendingUp, Clock, Heart, Target, HardDrive, Wrench, Copy, Search, Moon as MoonIcon,
 } from "lucide-react";
 import TarefasHome, { TaskCard, TaskDetailModal } from "./telas/tarefas";
-import { TaskProvider, useTasks, isDone, isOverdue, sameDay, PROJECT_COLORS, type Project } from "./telas/tarefas/context/TaskContext";
+import {
+  TaskProvider, useTasks, isDone, isOverdue, sameDay,
+  FALLBACK_CATEGORY, FIXED_STATUSES, type Category, type StatusDef,
+} from "./telas/tarefas/context/TaskContext";
 import AuthFlow from "./telas/login";
 import {
   GpsSection, DupSection, CalSection,
@@ -161,38 +164,157 @@ function TarefasScreen({
 
 // ── ProjetosScreen ────────────────────────────────────────────────
 
-const PROJETOS_LIST = [
-  { id: "Faculdade",  desc: "Disciplinas e trabalhos" },
-  { id: "Trabalho",   desc: "Projetos profissionais" },
-  { id: "Finanças",   desc: "Orçamento e contas" },
-  { id: "Saúde",      desc: "Rotina e bem-estar" },
-  { id: "Pessoal",    desc: "Metas pessoais" },
-  { id: "Lazer",      desc: "Entretenimento" },
-  { id: "Manutenção", desc: "Casa e equipamentos" },
-  { id: "Projetos",   desc: "Iniciativas diversas" },
-];
+const fieldCls = "w-full text-[13px] px-3 py-2 rounded-lg outline-none";
+const fieldStyle = { background: "var(--sunken)", border: "1px solid var(--border)", color: "var(--text)" };
+const fmtDia = (d?: string) => d ? new Date(d + "T00:00").toLocaleDateString("pt-BR") : "";
 
-function CategoriaView({ id, theme, onBack }: { id: string; theme: "dark" | "light"; onBack: () => void }) {
-  const { tasks, setProjectColor } = useTasks();
+function CategoryForm({ initial, onSave, onCancel }: { initial: Category; onSave: (c: Category) => void; onCancel: () => void }) {
+  const { categories } = useTasks();
+  const [c, setC] = useState(initial);
+  const name = c.name.trim();
+  const taken = name.toLowerCase() !== initial.name.toLowerCase()
+    && categories.some(x => x.name.toLowerCase() === name.toLowerCase());
+  const save = () => { if (name && !taken) onSave({ ...c, name, desc: c.desc.trim() }); };
+
+  return (
+    <div className="rounded-xl p-3 space-y-2" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+      <input autoFocus placeholder="Nome da categoria" value={c.name} onChange={e => setC({ ...c, name: e.target.value })}
+        className={fieldCls} style={fieldStyle} />
+      {taken && <p className="text-[12px]" style={{ color: "var(--critical)" }}>Já existe uma categoria com esse nome.</p>}
+      <input placeholder="Descrição (opcional)" value={c.desc} onChange={e => setC({ ...c, desc: e.target.value })}
+        className={fieldCls} style={fieldStyle} />
+      <label className="flex items-center gap-2 text-[13px]" style={{ color: "var(--sub)" }}>
+        Cor
+        <input type="color" value={c.color} onChange={e => setC({ ...c, color: e.target.value })}
+          className="w-8 h-8 rounded-lg bg-transparent border-0 p-0" />
+      </label>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="text-[12px]" style={{ color: "var(--sub)" }}>
+          Início
+          <input type="date" value={c.start ?? ""} onChange={e => setC({ ...c, start: e.target.value || undefined })}
+            className={fieldCls} style={fieldStyle} />
+        </label>
+        <label className="text-[12px]" style={{ color: "var(--sub)" }}>
+          Fim
+          <input type="date" value={c.end ?? ""} min={c.start} onChange={e => setC({ ...c, end: e.target.value || undefined })}
+            className={fieldCls} style={fieldStyle} />
+        </label>
+      </div>
+      <div className="flex gap-2 pt-1">
+        <button onClick={onCancel} className="flex-1 py-2 rounded-lg text-[13px]" style={{ border: "1px solid var(--border)", color: "var(--sub)" }}>
+          Cancelar
+        </button>
+        <button onClick={save} disabled={!name || taken} className="flex-1 py-2 rounded-lg text-[13px] font-semibold text-white disabled:opacity-40"
+          style={{ background: "var(--accent)" }}>
+          Salvar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function StatusRow({ st }: { st: StatusDef }) {
+  const { statuses, saveStatus, removeStatus } = useTasks();
+  const fixed = FIXED_STATUSES.includes(st.name);
+  const [name, setName] = useState(st.name);
+  const commit = () => {
+    const n = name.trim();
+    if (!n || n === st.name || statuses.some(x => x.name.toLowerCase() === n.toLowerCase())) { setName(st.name); return; }
+    saveStatus(st.name, { ...st, name: n });
+  };
+  return (
+    <div className="flex items-center gap-2">
+      <input type="color" value={st.color} onChange={e => saveStatus(st.name, { ...st, color: e.target.value })}
+        className="w-7 h-7 flex-none rounded-md bg-transparent border-0 p-0" />
+      <input value={name} readOnly={fixed} onChange={e => setName(e.target.value)} onBlur={commit}
+        onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
+        className={fieldCls} style={{ ...fieldStyle, color: st.color }} />
+      {fixed ? <span className="w-8 flex-none" /> : (
+        <button aria-label={`Excluir status ${st.name}`} className="w-8 flex-none flex justify-center" style={{ color: "var(--tertiary)" }}
+          onClick={() => { if (window.confirm(`Excluir o status "${st.name}"? As tarefas com ele voltam para Pendente.`)) removeStatus(st.name); }}>
+          <Trash2 size={15} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function StatusManager() {
+  const { statuses, saveStatus } = useTasks();
+  const [novo, setNovo] = useState("");
+  const add = () => {
+    const n = novo.trim();
+    if (!n || statuses.some(x => x.name.toLowerCase() === n.toLowerCase())) return;
+    saveStatus(null, { name: n, color: "#4F6BED" });
+    setNovo("");
+  };
+  return (
+    <div className="px-4 py-3 space-y-2">
+      {statuses.map(st => <StatusRow key={st.name} st={st} />)}
+      <div className="flex items-center gap-2 pt-1">
+        <input placeholder="Novo status" value={novo} onChange={e => setNovo(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") add(); }} className={fieldCls} style={fieldStyle} />
+        <button onClick={add} aria-label="Adicionar status" className="w-8 h-8 flex-none rounded-lg flex items-center justify-center text-white"
+          style={{ background: "var(--accent)" }}>
+          <Plus size={16} />
+        </button>
+      </div>
+      <p className="text-[11px]" style={{ color: "var(--tertiary)" }}>Pendente e Concluída são fixos.</p>
+    </div>
+  );
+}
+
+function CategoriaView({ id, theme, onBack, onRenamed }: { id: string; theme: "dark" | "light"; onBack: () => void; onRenamed: (name: string) => void }) {
+  const { tasks, categories, saveCategory, removeCategory } = useTasks();
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const cat = categories.find(c => c.name === id);
   const list = tasks
     .filter(t => t.project === id)
     .sort((a, b) => Number(isDone(a)) - Number(isDone(b)) || a.dueDate.localeCompare(b.dueDate));
   const detail = tasks.find(t => t.id === detailId);
   const pending = list.filter(t => !isDone(t)).length;
+  if (!cat) return null;
+
+  const remove = () => {
+    const msg = list.length
+      ? `Excluir a categoria "${id}"? As ${list.length} tarefas dela vão para ${FALLBACK_CATEGORY}.`
+      : `Excluir a categoria "${id}"?`;
+    if (!window.confirm(msg)) return;
+    removeCategory(id);
+    onBack();
+  };
 
   return (
     <div className="flex flex-col h-full" style={{ background: "var(--bg)" }}>
       <BackHeader title={id} onBack={onBack} />
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
+        {editing ? (
+          <CategoryForm initial={cat} onCancel={() => setEditing(false)}
+            onSave={c => { saveCategory(id, c); setEditing(false); if (c.name !== id) onRenamed(c.name); }} />
+        ) : (
+          <div className="rounded-xl p-3 mb-1" style={{ background: "var(--surface)", border: "1px solid var(--border)", borderLeft: `3px solid ${cat.color}` }}>
+            {cat.desc && <p className="text-[13px]" style={{ color: "var(--text)" }}>{cat.desc}</p>}
+            {(cat.start || cat.end) && (
+              <p className="text-[12px] font-mono mt-0.5" style={{ color: "var(--sub)" }}>
+                {fmtDia(cat.start) || "…"} até {fmtDia(cat.end) || "…"}
+              </p>
+            )}
+            <div className="flex gap-4 mt-2">
+              <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-[13px] font-medium" style={{ color: "var(--accent)" }}>
+                <Pencil size={13} /> Editar
+              </button>
+              {id !== FALLBACK_CATEGORY && (
+                <button onClick={remove} className="flex items-center gap-1 text-[13px] font-medium" style={{ color: "var(--critical)" }}>
+                  <Trash2 size={13} /> Excluir
+                </button>
+              )}
+            </div>
+          </div>
+        )}
         <p className="text-[13px] mb-1" style={{ color: "var(--sub)" }}>
           {pending === 0 ? "Nada pendente aqui." : `${pending} ${pending === 1 ? "tarefa pendente" : "tarefas pendentes"}`}
         </p>
-        <label className="flex items-center gap-2 text-[13px] mb-2" style={{ color: "var(--sub)" }}>
-          Cor da categoria
-          <input type="color" value={PROJECT_COLORS[id as Project]} onChange={e => setProjectColor(id as Project, e.target.value)}
-            className="w-8 h-8 rounded-lg bg-transparent border-0 p-0" />
-        </label>
         {list.length === 0 && (
           <p className="text-[13px]" style={{ color: "var(--tertiary)" }}>Nenhuma tarefa nesta categoria ainda.</p>
         )}
@@ -211,11 +333,12 @@ function ProjetosScreen({
   theme: "dark" | "light";
 }) {
   const [subPage, setSubPage] = useState<string | null>(null);
-  const { tasks } = useTasks();
+  const { tasks, categories, saveCategory } = useTasks();
 
   const [categoria, setCategoria] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
-  if (categoria) return <CategoriaView id={categoria} theme={theme} onBack={() => setCategoria(null)} />;
+  if (categoria) return <CategoriaView id={categoria} theme={theme} onBack={() => setCategoria(null)} onRenamed={setCategoria} />;
   if (subPage) return <SubPageView id={subPage} theme={theme} onBack={() => setSubPage(null)} />;
 
   return (
@@ -225,26 +348,41 @@ function ProjetosScreen({
         <div className="flex items-center gap-2 mb-1">
           <h1 className="font-semibold text-[22px]" style={{ color: "var(--text)" }}>Projetos</h1>
         </div>
-        <p className="text-[13px]" style={{ color: "var(--sub)" }}>8 categorias ativas</p>
+        <p className="text-[13px]" style={{ color: "var(--sub)" }}>{categories.length} {categories.length === 1 ? "categoria" : "categorias"}</p>
       </div>
 
       {/* Project grid */}
       <div className="px-4 grid grid-cols-2 gap-3 mb-2">
-        {PROJETOS_LIST.map(p => (
+        {categories.map(p => (
           <button
-            key={p.id}
-            onClick={() => setCategoria(p.id)}
+            key={p.name}
+            onClick={() => setCategoria(p.name)}
             className="rounded-xl p-4 text-left active:scale-[0.98] transition-transform"
-            style={{ background: "var(--surface)", border: "1px solid var(--border)", borderLeft: `3px solid ${PROJECT_COLORS[p.id as Project]}` }}
+            style={{ background: "var(--surface)", border: "1px solid var(--border)", borderLeft: `3px solid ${p.color}` }}
           >
-            <p className="font-semibold text-[14px] mb-0.5" style={{ color: "var(--text)" }}>{p.id}</p>
+            <p className="font-semibold text-[14px] mb-0.5" style={{ color: "var(--text)" }}>{p.name}</p>
             <p className="text-[12px]" style={{ color: "var(--sub)" }}>{p.desc}</p>
             <p className="text-[11px] font-mono mt-1" style={{ color: "var(--tertiary)" }}>
-              {tasks.filter(t => t.project === p.id && !isDone(t)).length} em aberto
+              {tasks.filter(t => t.project === p.name && !isDone(t)).length} em aberto
             </p>
           </button>
         ))}
       </div>
+      <div className="px-4 mb-2">
+        {creating ? (
+          <CategoryForm initial={{ name: "", desc: "", color: "#4F6BED" }} onCancel={() => setCreating(false)}
+            onSave={c => { saveCategory(null, c); setCreating(false); }} />
+        ) : (
+          <button onClick={() => setCreating(true)} className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl text-[13px] font-medium"
+            style={{ border: "1px dashed var(--border)", color: "var(--accent)" }}>
+            <Plus size={15} /> Nova categoria
+          </button>
+        )}
+      </div>
+
+      <Block title="Status das tarefas">
+        <StatusManager />
+      </Block>
 
       {/* Planning block */}
       <Block title="Planejamento">

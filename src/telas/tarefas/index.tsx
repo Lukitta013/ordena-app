@@ -7,7 +7,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
-  useTasks, deriveQuadrant, toLocalInput, PROJECT_COLORS, byUrgency, parseTags,
+  useTasks, deriveQuadrant, toLocalInput, PROJECT_COLORS, STATUS_COLORS, byUrgency, parseTags,
   type AppTask, type Priority, type Status, type Project, type Quadrant,
 } from "./context/TaskContext";
 import { countLeaves, type AppSubtask } from "./utils/subtaskTree";
@@ -16,10 +16,8 @@ type Theme = "dark" | "light";
 
 // ── Constants ─────────────────────────────────────────────────────
 
-const PROJECTS: Project[] = [
-  "Faculdade", "Trabalho", "Finanças", "Saúde",
-  "Pessoal", "Lazer", "Manutenção", "Projetos",
-];
+// Categorias criadas pelo usuário usam o ícone de pasta
+export const projectIcon = (p: Project): LucideIcon => PROJECT_ICONS[p] ?? FolderKanban;
 
 const PROJECT_ICONS: Record<Project, LucideIcon> = {
   Faculdade:  GraduationCap,
@@ -33,7 +31,6 @@ const PROJECT_ICONS: Record<Project, LucideIcon> = {
 };
 
 const PRIORITIES: Priority[] = ["Alta", "Média", "Baixa"];
-const STATUSES: Status[] = ["Pendente", "Em Andamento", "Em Revisão", "Bloqueada", "Concluída"];
 
 const PRIORITY_BORDER: Record<Priority, string> = {
   Alta:  "border-l-rose-500",
@@ -47,13 +44,19 @@ const PRIORITY_PILL: Record<Priority, string> = {
   Baixa: "text-slate-400 border-slate-500/30",
 };
 
-const STATUS_STYLE: Record<Status, string> = {
-  Pendente: "bg-slate-500/10 text-slate-400",
-  "Em Andamento": "bg-blue-500/10 text-blue-400",
-  "Em Revisão": "bg-violet-500/10 text-violet-400",
-  Bloqueada: "bg-rose-500/10 text-rose-400",
-  Concluída: "bg-emerald-500/10 text-emerald-400",
+const statusStyle = (s: Status) => {
+  const color = STATUS_COLORS[s] ?? "#94A3B8";
+  return { color, background: color + "1A" };
 };
+
+function StatusSelect({ value, onChange, className }: { value: Status; onChange: (s: Status) => void; className: string }) {
+  const { statuses } = useTasks();
+  return (
+    <select className={className} value={value} onChange={e => onChange(e.target.value)}>
+      {statuses.map(s => <option key={s.name}>{s.name}</option>)}
+    </select>
+  );
+}
 
 const Q_META: Record<Quadrant, { label: string; border: string; desc: string }> = {
   Q1: { label: "Fazer Agora",   border: "border-l-rose-500",  desc: "Urgente & Importante" },
@@ -78,20 +81,21 @@ function ProjectSelect({
   onChange: (p: Project) => void;
   className: string;
 }) {
+  const { categories } = useTasks();
   return (
     <select
       className={className}
       value={value}
-      onChange={e => onChange(e.target.value as Project)}
+      onChange={e => onChange(e.target.value)}
     >
-      {PROJECTS.map(p => <option key={p} value={p}>{p}</option>)}
+      {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
     </select>
   );
 }
 
 function ProjectPill({ project }: { project: Project }) {
-  const color = PROJECT_COLORS[project];
-  const Icon = PROJECT_ICONS[project];
+  const color = PROJECT_COLORS[project] ?? "#64748B";
+  const Icon = projectIcon(project);
   return (
     <span
       className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border"
@@ -428,9 +432,9 @@ type FormState = {
 function TaskFormModal({ onClose, isDark, initial, onCreated }: {
   onClose: () => void; isDark: boolean; initial?: Partial<FormState>; onCreated?: () => void;
 }) {
-  const { createTask } = useTasks();
+  const { createTask, categories } = useTasks();
   const [form, setForm] = useState<FormState>({
-    title: "", description: "", project: "Faculdade",
+    title: "", description: "", project: categories[0]?.name ?? "Pessoal",
     priority: "Média", status: "Pendente",
     dueDate: "", effort: "", tags: "",
     ...initial,
@@ -545,10 +549,7 @@ function TaskFormModal({ onClose, isDark, initial, onCreated }: {
             </div>
             <div>
               <label className={lbl}>Status</label>
-              <select className={inp} value={form.status}
-                onChange={e => setForm(f => ({ ...f, status: e.target.value as Status }))}>
-                {STATUSES.map(s => <option key={s}>{s}</option>)}
-              </select>
+              <StatusSelect className={inp} value={form.status} onChange={st => setForm(f => ({ ...f, status: st }))} />
             </div>
           </div>
 
@@ -752,11 +753,9 @@ export function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDa
           <div>
             <p className={`text-[10px] font-medium uppercase tracking-wide mb-1.5 ${isDark ? "text-[#9AA0AC]" : "text-slate-400"}`}>Status</p>
             {isEditing ? (
-              <select className={inp} value={draft.status} onChange={e => set("status", e.target.value as Status)}>
-                {STATUSES.map(s => <option key={s}>{s}</option>)}
-              </select>
+              <StatusSelect className={inp} value={draft.status} onChange={st => set("status", st)} />
             ) : (
-              <span className={`text-xs px-2.5 py-1 rounded-full ${STATUS_STYLE[task.status]}`}>{task.status}</span>
+              <span className="text-xs px-2.5 py-1 rounded-full" style={statusStyle(task.status)}>{task.status}</span>
             )}
           </div>
 
@@ -897,7 +896,7 @@ function QuickNoteSheet({ isDark, onClose, onConvert }: {
 const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite"; };
 
 function HomeScreen({ theme }: { theme: Theme }) {
-  const { tasks } = useTasks();
+  const { tasks, categories } = useTasks();
   const [search, setSearch] = useState("");
   const [activeQ, setActiveQ] = useState<"ALL" | Quadrant>("ALL");
   const [filterProject, setFilterProject] = useState<"Todos" | Project>("Todos");
@@ -1007,9 +1006,8 @@ function HomeScreen({ theme }: { theme: Theme }) {
             >
               Todos
             </button>
-            {PROJECTS.map(p => {
-              const color = PROJECT_COLORS[p];
-              const Icon = PROJECT_ICONS[p];
+            {categories.map(({ name: p, color }) => {
+              const Icon = projectIcon(p);
               const active = filterProject === p;
               return (
                 <button
