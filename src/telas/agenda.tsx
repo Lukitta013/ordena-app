@@ -467,15 +467,15 @@ export function RecurSection({ isDark }: { isDark: boolean }) {
         <div className={`${isDark ? "bg-slate-700/40" : "bg-slate-100"} rounded-xl p-2.5 mb-3`}>
           <div className="flex items-center gap-1 mb-1">
             <Mail size={10} className="text-blue-400" />
-            <span className="text-[10px] font-medium text-blue-400">De: cliente@empresa.com</span>
+            <span className="text-[10px] font-medium text-blue-400">De: secretaria@faculdade.edu.br</span>
           </div>
-          <p className={`text-[10px] font-semibold ${text} mb-0.5`}>Assunto: URGENTE — Ajuste no relatório Q3</p>
-          <p className="text-[10px] text-slate-400">Preciso do relatório ajustado para apresentação amanhã às 9h. Pode confirmar entrega?</p>
+          <p className={`text-[10px] font-semibold ${text} mb-0.5`}>Assunto: Entrega do trabalho de Estatística</p>
+          <p className="text-[10px] text-slate-400">Lembrete: o trabalho deve ser enviado pelo portal até sexta às 23h59.</p>
         </div>
         {converted ? (
           <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2.5 py-2 flex items-center gap-2">
             <CheckCircle2 size={12} className="text-emerald-400" />
-            <span className="text-xs text-emerald-300">Tarefa criada: "URGENTE — Ajuste no relatório Q3"</span>
+            <span className="text-xs text-emerald-300">Tarefa criada: "Entrega do trabalho de Estatística"</span>
           </div>
         ) : (
           <button onClick={() => setConverted(true)} className="w-full py-2 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-400 text-xs font-medium hover:bg-blue-500/30 transition-colors">
