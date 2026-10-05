@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import {
-  CheckSquare, Folder, Calendar, BarChart2, Settings, Sun, Moon, Monitor, ChevronRight, ArrowLeft, Plus, LogOut, MapPin, Repeat, AlertCircle, Link2, TrendingUp, Clock, Heart, Target, HardDrive, Wrench, Copy, Search, Moon as MoonIcon,
+  CheckSquare, Folder, Calendar, BarChart2, Settings, Sun, Moon, Monitor, ChevronLeft, ChevronRight, ArrowLeft, Plus, LogOut, MapPin, Repeat, AlertCircle, Link2, TrendingUp, Clock, Heart, Target, HardDrive, Wrench, Copy, Search, Moon as MoonIcon,
 } from "lucide-react";
 import TarefasHome, { TaskCard, TaskDetailModal } from "./telas/tarefas";
 import { TaskProvider, useTasks, isDone, isOverdue, sameDay } from "./telas/tarefas/context/TaskContext";
@@ -256,11 +256,12 @@ function ProjetosScreen({
 
 // ── AgendaScreen ──────────────────────────────────────────────────
 
-function MiniCalendar({ taskDays, selected, onSelect }: { taskDays: Set<number>; selected: number; onSelect: (d: number) => void }) {
+function MiniCalendar({ year, month, taskDays, selected, onSelect, onMonth }: {
+  year: number; month: number; taskDays: Set<number>; selected: number;
+  onSelect: (d: number) => void; onMonth: (delta: number) => void;
+}) {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const today = now.getDate();
+  const today = now.getFullYear() === year && now.getMonth() === month ? now.getDate() : 0;
   const firstDay = new Date(year, month, 1).getDay();
   const days = new Date(year, month + 1, 0).getDate();
   const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -272,9 +273,17 @@ function MiniCalendar({ taskDays, selected, onSelect }: { taskDays: Set<number>;
 
   return (
     <div className="px-4 py-4">
-      <p className="font-semibold text-[15px] mb-3" style={{ color: "var(--text)" }}>
-        {MONTHS[month]} {year}
-      </p>
+      <div className="flex items-center justify-between mb-3">
+        <button onClick={() => onMonth(-1)} aria-label="Mês anterior" className="p-1.5 rounded-full" style={{ color: "var(--sub)" }}>
+          <ChevronLeft size={18} />
+        </button>
+        <p className="font-semibold text-[15px]" style={{ color: "var(--text)" }}>
+          {MONTHS[month]} {year}
+        </p>
+        <button onClick={() => onMonth(1)} aria-label="Próximo mês" className="p-1.5 rounded-full" style={{ color: "var(--sub)" }}>
+          <ChevronRight size={18} />
+        </button>
+      </div>
       <div className="grid grid-cols-7 gap-0.5 mb-1">
         {DAYS.map((d, i) => (
           <p key={i} className="text-center text-[11px] font-medium py-1" style={{ color: "var(--tertiary)" }}>{d}</p>
@@ -315,14 +324,21 @@ function AgendaScreen({ theme, onOpenTasks }: { theme: "dark" | "light"; onOpenT
   const [subPage, setSubPage] = useState<string | null>(null);
   const { tasks } = useTasks();
   const now = new Date();
+  const [selDate, setSelDate] = useState(() => new Date(now.getFullYear(), now.getMonth(), now.getDate()));
+  const year = selDate.getFullYear();
+  const month = selDate.getMonth();
   const taskDays = new Set(
     tasks.map(t => new Date(t.dueDate))
-      .filter(d => d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear())
+      .filter(d => d.getMonth() === month && d.getFullYear() === year)
       .map(d => d.getDate()),
   );
-  const [selDay, setSelDay] = useState(now.getDate());
-  const selDate = new Date(now.getFullYear(), now.getMonth(), selDay);
-  const isToday = selDay === now.getDate();
+  const isToday = selDate.toDateString() === now.toDateString();
+  // Ao trocar de mês, seleciona hoje se for o mês atual; senão, o dia 1
+  const changeMonth = (delta: number) => {
+    const first = new Date(year, month + delta, 1);
+    const current = first.getFullYear() === now.getFullYear() && first.getMonth() === now.getMonth();
+    setSelDate(current ? new Date(now.getFullYear(), now.getMonth(), now.getDate()) : first);
+  };
   const dayTasks = tasks
     .filter(t => sameDay(t.dueDate, selDate))
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
@@ -343,7 +359,8 @@ function AgendaScreen({ theme, onOpenTasks }: { theme: "dark" | "light"; onOpenT
         className="mx-4 rounded-xl overflow-hidden"
         style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
       >
-        <MiniCalendar taskDays={taskDays} selected={selDay} onSelect={setSelDay} />
+        <MiniCalendar year={year} month={month} taskDays={taskDays} selected={selDate.getDate()}
+          onSelect={d => setSelDate(new Date(year, month, d))} onMonth={changeMonth} />
       </div>
 
       {/* Today's tasks note */}
