@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useRef,
   useState,
   type ReactNode,
@@ -284,7 +285,6 @@ type ToastMsg = { id: string; text: string; undoTask?: AppTask };
 type TaskCtx = {
   tasks: AppTask[];
   toast: ToastMsg | null;
-  syncQueue: number;
   createTask: (data: Omit<AppTask, "id" | "updatedAt" | "syncPending">) => string;
   updateTask: (id: string, patch: Partial<AppTask>) => void;
   deleteTask: (id: string) => void;
@@ -293,7 +293,6 @@ type TaskCtx = {
   updateSubtaskFn: (taskId: string, stId: string, patch: Partial<Omit<AppSubtask, "children">>) => void;
   removeSubtaskFn: (taskId: string, stId: string) => void;
   toggleSubtaskFn: (taskId: string, stId: string) => void;
-  simulateSync: () => void;
   dismissToast: () => void;
 };
 
@@ -306,11 +305,12 @@ export function useTasks() {
 }
 
 export function TaskProvider({ children }: { children: ReactNode }) {
-  const [tasks, setTasks] = useState<AppTask[]>(SEED);
+  const [tasks, setTasks] = useState<AppTask[]>(() => {
+    try { return JSON.parse(localStorage.getItem("ordena-tasks") ?? "") as AppTask[]; } catch { return SEED; }
+  });
+  useEffect(() => { localStorage.setItem("ordena-tasks", JSON.stringify(tasks)); }, [tasks]);
   const [toast, setToast] = useState<ToastMsg | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const syncQueue = tasks.filter(t => t.syncPending).length;
 
   const showToast = useCallback((text: string, undoTask?: AppTask) => {
     const id = genId();
@@ -331,19 +331,19 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     const id = `task-${genId()}`;
     const task: AppTask = { ...data, id, updatedAt: new Date().toISOString(), syncPending: true };
     setTasks(prev => [task, ...prev]);
-    showToast("✓ Tarefa criada · salva no SQLite local");
+    showToast("✓ Tarefa criada");
     return id;
   }, [showToast]);
 
   const updateTask = useCallback((id: string, patch: Partial<AppTask>) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, ...patch, syncPending: true, updatedAt: new Date().toISOString() } : t));
-    showToast("✓ Alterações salvas · salvo no SQLite local");
+    showToast("✓ Alterações salvas");
   }, [showToast]);
 
   const deleteTask = useCallback((id: string) => {
     const task = tasks.find(t => t.id === id);
     setTasks(prev => prev.filter(t => t.id !== id));
-    showToast("✓ Tarefa excluída · salvo no SQLite local", task);
+    showToast("✓ Tarefa excluída", task);
   }, [tasks, showToast]);
 
   const restoreTask = useCallback((task: AppTask) => {
@@ -361,7 +361,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
         ? { ...t, subtasks: fn(t.subtasks), syncPending: true, updatedAt: new Date().toISOString() }
         : t,
     ));
-    showToast("✓ Subtarefa atualizada · salvo no SQLite local");
+    showToast("✓ Subtarefa atualizada");
   }, [showToast]);
 
   const addSubtaskFn = useCallback((taskId: string, parentId: string | null, title: string) => {
@@ -384,27 +384,12 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     ));
   }, []);
 
-  const simulateSync = useCallback(() => {
-    const ids = tasks.filter(t => t.syncPending).map(t => t.id);
-    let i = 0;
-    const tick = () => {
-      if (i >= ids.length) {
-        showToast(`✓ ${ids.length} alterações sincronizadas com o servidor Node.js`);
-        return;
-      }
-      setTasks(prev => prev.map(t => t.id === ids[i] ? { ...t, syncPending: false } : t));
-      i++;
-      setTimeout(tick, 300);
-    };
-    tick();
-  }, [tasks, showToast]);
-
   return (
     <Ctx.Provider value={{
-      tasks, toast, syncQueue,
+      tasks, toast,
       createTask, updateTask, deleteTask, restoreTask,
       addSubtaskFn, updateSubtaskFn, removeSubtaskFn, toggleSubtaskFn,
-      simulateSync, dismissToast,
+      dismissToast,
     }}>
       {children}
     </Ctx.Provider>

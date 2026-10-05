@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Plus, Search, X, ChevronRight, ChevronDown, Calendar, Filter,
   Bookmark, FileText, CloudOff, Pencil, Trash2,
-  CheckCircle2, Circle, RefreshCw, Clock,
+  CheckCircle2, Circle, Clock,
   GraduationCap, Briefcase, Wallet, HeartPulse, User, Gamepad2, Wrench, FolderKanban,
   type LucideIcon,
 } from "lucide-react";
@@ -852,8 +852,10 @@ function QuickNoteSheet({ isDark, onClose, onConvert }: {
 
 // ── HomeScreen ────────────────────────────────────────────────────
 
+const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite"; };
+
 function HomeScreen({ theme }: { theme: Theme }) {
-  const { tasks, syncQueue, simulateSync } = useTasks();
+  const { tasks } = useTasks();
   const [search, setSearch] = useState("");
   const [activeQ, setActiveQ] = useState<"ALL" | Quadrant>("ALL");
   const [filterProject, setFilterProject] = useState<"Todos" | Project>("Todos");
@@ -906,26 +908,9 @@ function HomeScreen({ theme }: { theme: Theme }) {
       <div className="px-4 pt-4 pb-3">
         <div className="flex items-center justify-between mb-2">
           <div>
-            <p className={`text-xs ${sub}`}>Bom dia, Lucas</p>
+            <p className={`text-xs ${sub}`}>{greeting()}, Lucas</p>
             <h1 className={`text-xl font-bold ${text}`}>Minhas Tarefas</h1>
           </div>
-          <div className="flex items-center gap-2">
-            {syncQueue > 0 && (
-              <button onClick={simulateSync} title="Simular reconexão"
-                className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-full">
-                <RefreshCw size={10} className="text-amber-400 animate-spin" />
-                <span className="text-[10px] text-amber-400 font-mono">{syncQueue} na fila</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* SQLite indicator */}
-        <div className="flex items-center gap-1.5 mb-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-[#3FB27F] animate-pulse" />
-          <span className="text-[10px] text-[#3FB27F] font-mono">
-            Offline-First SQLite Ativo{syncQueue > 0 ? ` · ${syncQueue} alterações na fila` : " · Sincronizado"}
-          </span>
         </div>
 
         {/* KPI strip */}

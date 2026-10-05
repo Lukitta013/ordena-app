@@ -352,11 +352,11 @@ export function SearchSection({ isDark }: { isDark: boolean }) {
   const sub = isDark ? "text-slate-400" : "text-slate-500";
 
   const index: Record<string, string[]> = {
-    "minio": ["Refatorar camada de dados MinIO", "Organizar pastas antigas"],
-    "relatrio": ["Relatório Trimestral — Q3 2025"],
-    "auth": ["Implementar autenticação OAuth2 + JWT"],
-    "deploy": ["Deploy em Produção (AWS EC2)"],
-    "teste": ["Aprovação dos Testes E2E (Cypress)"],
+    "relatrio": ["Fechar o relatório semanal de horas", "Finalizar relatório de Estatística Aplicada"],
+    "treino": ["Treino de perna — Leg day completo"],
+    "prova": ["Estudar Árvores AVL para a prova de quarta"],
+    "fatura": ["Pagar fatura do Nubank antes do vencimento"],
+    "pastas": ["Organizar pastas antigas de downloads"],
   };
 
   const results = q.length > 2
@@ -369,13 +369,13 @@ export function SearchSection({ isDark }: { isDark: boolean }) {
     <div className="space-y-3">
       <div className={`${card} border rounded-xl p-3`}>
         <p className={`text-xs font-semibold ${text} mb-2 flex items-center gap-1.5`}>
-          <Search size={12} className="text-cyan-400" /> Busca Semântica com Índice Invertido
+          <Search size={12} className="text-cyan-400" /> Busca de Tarefas
         </p>
         <div className={`flex items-center gap-2 ${isDark ? "bg-slate-700/60" : "bg-slate-100"} border ${isDark ? "border-slate-600" : "border-slate-200"} rounded-lg px-3 py-2`}>
           <Search size={13} className={sub} />
           <input
             className={`flex-1 bg-transparent text-sm ${text} placeholder-slate-500 outline-none`}
-            placeholder='Tente "relatrio" ou "minio"...'
+            placeholder='Tente "relatrio" ou "treino"...'
             value={q}
             onChange={e => setQ(e.target.value)}
           />

@@ -454,7 +454,7 @@ export function RulesSection({ isDark }: { isDark: boolean }) {
     <div className="space-y-3">
       <div className={`${card} border rounded-xl p-3`}>
         <p className={`text-xs font-semibold ${text} mb-2 flex items-center gap-1.5`}>
-          <Code2 size={12} className="text-teal-400" /> Motor de Regras JSON (Se → Então)
+          <Code2 size={12} className="text-teal-400" /> Regras Automáticas (Se → Então)
         </p>
         {rules.map(rule => (
           <div key={rule.id} className={`mb-3 rounded-xl border p-2.5 transition-all ${rule.active ? "border-teal-500/30 bg-teal-500/5" : "border-slate-700/50 bg-slate-700/20 opacity-60"}`}>
@@ -536,7 +536,7 @@ export function DailySection({ isDark }: { isDark: boolean }) {
       </div>
 
       <div className={`${card} border rounded-xl p-3`}>
-        <p className={`text-xs font-semibold ${text} mb-2`}>Checkpoints — Refatorar camada MinIO</p>
+        <p className={`text-xs font-semibold ${text} mb-2`}>Checkpoints — Entrega do TCC</p>
         <div className="flex gap-2">
           {checkpoints.map(cp => (
             <div key={cp} className="flex-1 text-center">

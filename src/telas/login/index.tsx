@@ -133,7 +133,7 @@ const ONBOARDING_SLIDES = [
   },
   {
     title: "Funciona sem internet",
-    body: "Todas as alterações são salvas localmente no SQLite e sincronizadas automaticamente quando a conexão retornar.",
+    body: "Suas tarefas ficam salvas no próprio aparelho, então você usa o app mesmo sem conexão.",
     illustration: (
       <svg width="200" height="140" viewBox="0 0 200 140" fill="none">
         <rect x="72" y="20" width="56" height="72" rx="8" stroke="#9AA0AC" strokeWidth="1.5" />
@@ -536,15 +536,6 @@ export function LoginScreen({
         <p className="text-center mt-4 text-[11px] font-mono" style={{ color: T.border }}>
           lucas@email.com / senha123
         </p>
-
-        {/* Offline toggle (demo) */}
-        <button
-          onClick={() => setVariant(v => v === "offline" ? "default" : "offline")}
-          className="block mx-auto mt-2 text-[11px]"
-          style={{ color: T.border }}
-        >
-          {isOffline ? "simular online" : "simular offline"}
-        </button>
       </div>
 
       {/* Footer */}
