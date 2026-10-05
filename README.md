@@ -29,17 +29,15 @@ npx cap sync android     # copia a versão final para o projeto Android
 
 Depois do `cap sync`, abra a pasta `android/` no Android Studio e rode no emulador ou no celular.
 
-## Product Backlog
+## Primeira entrega: Projetos e Agenda
 
-As histórias do backlog do Ordena, agrupadas por tema, com o estado de cada uma no app.
+A primeira entrega (Sprint 1, AV1) apresenta as telas de **Projetos** e **Agenda**, junto com as tarefas que elas usam:
 
-**Legenda**
-- ✅ **Implementado:** funciona de verdade com as suas tarefas.
-- 🟡 **Parcial:** a parte principal funciona; o restante ainda não.
-- 🖼️ **Demonstração:** existe uma tela mostrando a ideia, com dados de exemplo.
-- ⏳ **Não iniciado:** ainda não tem nada no app.
+- **Projetos:** criar, editar e excluir categorias (nome, descrição, cor e datas), personalizar os status das tarefas e tocar numa categoria para ver as tarefas dela.
+- **Agenda:** calendário mensal com setas para trocar de mês, dias com tarefa marcados e a lista de tarefas do dia tocado.
+- **Tarefas:** CRUD completo, subtarefas, matriz de Eisenhower, tags, filtros e nota rápida.
 
-### Tarefas e organização
+User stories desta entrega:
 
 | ID | História | Estado | No app |
 |----|----------|--------|--------|
@@ -48,22 +46,41 @@ As histórias do backlog do Ordena, agrupadas por tema, com o estado de cada uma
 | US03 | Lista ordenada por matriz de Eisenhower | ✅ Implementado | Quadrantes por prioridade e prazo; dentro de cada um, atrasadas primeiro, depois prazo mais próximo e menor esforço. |
 | US04 | Projetos temáticos com cor e status personalizados | ✅ Implementado | Criar, editar e excluir categorias com nome, descrição, cor e datas de início e fim. Status personalizados com cor: criar, renomear e excluir (Pendente e Concluída são fixos). |
 | US05 | Tags, filtros combinados e anotações rápidas | ✅ Implementado | Tags nas tarefas, filtros combinados (categoria, prioridade e tag) junto com a busca, e nota rápida que vira tarefa. |
-| US07 | Dependências entre tarefas | ⏳ Não iniciado | |
-| US08 | Duplicar tarefas e salvar modelos | 🟡 Parcial | Projetos › Duplicação e Templates duplica a tarefa com as subtarefas. Salvar como modelo ainda não existe. |
-| US10 | Anotações e anexos nas tarefas (imagem, documento, áudio) | ⏳ Não iniciado | |
-| US12 | Histórico de atividades, arquivamento e busca tolerante a erros | 🖼️ Demonstração | Busca por título funciona na lista; a tela Agenda › Busca e Auditoria é demonstração. |
-| US13 | Tarefas recorrentes e tarefas criadas a partir de e-mails | 🖼️ Demonstração | Agenda › Tarefas Recorrentes |
 
-### Agenda e lembretes
+## Product Backlog
+
+O backlog por entrega, como no documento do produto: Sprint 1 (AV1, 30%), Sprint 2 (AV2, 20%) e Sprint 3 (AV3, 50%).
+
+**Legenda**
+- ✅ **Implementado:** funciona de verdade com as suas tarefas.
+- 🟡 **Parcial:** a parte principal funciona; o restante ainda não.
+- 🖼️ **Demonstração:** existe uma tela mostrando a ideia, com dados de exemplo.
+- ⏳ **Não iniciado:** ainda não tem nada no app.
+
+### Sprint 1 — AV1
+
+| ID | História | Estado | No app |
+|----|----------|--------|--------|
+| US01 | Criar tarefas estruturadas (título, descrição, prazo, prioridade, esforço) com uso offline | ✅ Implementado | CRUD completo, salvo no aparelho. |
+| US02 | Subtarefas em vários níveis com progresso automático | ✅ Implementado | Subtarefas aninhadas com prazo próprio e barra de progresso. |
+| US03 | Lista ordenada por matriz de Eisenhower | ✅ Implementado | Quadrantes por prioridade e prazo; dentro de cada um, atrasadas primeiro, depois prazo mais próximo e menor esforço. |
+| US04 | Projetos temáticos com cor e status personalizados | ✅ Implementado | Criar, editar e excluir categorias com nome, descrição, cor e datas de início e fim. Status personalizados com cor: criar, renomear e excluir (Pendente e Concluída são fixos). |
+| US05 | Tags, filtros combinados e anotações rápidas | ✅ Implementado | Tags nas tarefas, filtros combinados (categoria, prioridade e tag) junto com a busca, e nota rápida que vira tarefa. |
+
+### Sprint 2 — AV2
 
 | ID | História | Estado | No app |
 |----|----------|--------|--------|
 | US06 | Lembretes por localização (GPS/geofencing) | 🖼️ Demonstração | Agenda › Lembretes por Local |
+| US07 | Dependências entre tarefas | ⏳ Não iniciado | |
+| US08 | Duplicar tarefas e salvar modelos | 🟡 Parcial | Projetos › Duplicação e Templates duplica a tarefa com as subtarefas. Salvar como modelo ainda não existe. |
 | US09 | Sincronizar com Google Calendar e calendário do Android | 🖼️ Demonstração | Agenda › Integrações |
+| US10 | Anotações e anexos nas tarefas (imagem, documento, áudio) | ⏳ Não iniciado | |
 | US11 | Alertas progressivos de prazo e resumo diário | 🟡 Parcial | Agenda › Alertas de Prazo mostra a urgência de cada tarefa real. Sem notificação push. |
-| US27 | Fechamento diário, plano do dia seguinte e checkpoints | 🟡 Parcial | Análises › Fechamento Diário usa as tarefas reais (feitas hoje, prazo amanhã, sugestão da mais rápida). Checkpoints são demonstração. |
+| US12 | Histórico de atividades, arquivamento e busca tolerante a erros | 🖼️ Demonstração | Busca por título funciona na lista; a tela Agenda › Busca e Auditoria é demonstração. |
+| US13 | Tarefas recorrentes e tarefas criadas a partir de e-mails | 🖼️ Demonstração | Agenda › Tarefas Recorrentes |
 
-### Análises e bem-estar
+### Sprint 3 — AV3
 
 | ID | História | Estado | No app |
 |----|----------|--------|--------|
@@ -72,11 +89,7 @@ As histórias do backlog do Ordena, agrupadas por tema, com o estado de cada uma
 | US17 | Cronograma (Gantt) das tarefas | 🖼️ Demonstração | Projetos › Cronograma Gantt |
 | US18 | Projeção da data de conclusão | 🟡 Parcial | Projetos › Projeções usa as tarefas restantes reais com um ritmo fixo. |
 | US22 | Sugestão de pausas e alerta de sobrecarga do dia | 🖼️ Demonstração | Análises › Bem-estar e Carga Diária |
-| US24 | Metas pessoais diárias | 🖼️ Demonstração | Análises › Metas Pessoais |
-
-### Dados e automação
-
-| ID | História | Estado | No app |
-|----|----------|--------|--------|
 | US23 | Backup na nuvem e exportação em PDF | 🖼️ Demonstração | Ajustes › Backup e Exportação |
+| US24 | Metas pessoais diárias | 🖼️ Demonstração | Análises › Metas Pessoais |
 | US26 | Automações com regras "se-então" | 🖼️ Demonstração | Ajustes › Automações |
+| US27 | Fechamento diário, plano do dia seguinte e checkpoints | 🟡 Parcial | Análises › Fechamento Diário usa as tarefas reais (feitas hoje, prazo amanhã, sugestão da mais rápida). Checkpoints são demonstração. |
