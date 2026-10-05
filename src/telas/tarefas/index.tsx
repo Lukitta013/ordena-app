@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Plus, Search, X, ChevronRight, ChevronDown, Calendar, Filter,
-  Bookmark, FileText, Pencil, Trash2,
+  FileText, Pencil, Trash2,
   CheckCircle2, Circle, Clock,
   GraduationCap, Briefcase, Wallet, HeartPulse, User, Gamepad2, Wrench, FolderKanban,
   type LucideIcon,
 } from "lucide-react";
 import {
-  useTasks, deriveQuadrant, toLocalInput, PROJECT_COLORS,
+  useTasks, deriveQuadrant, toLocalInput, PROJECT_COLORS, byUrgency, parseTags,
   type AppTask, type Priority, type Status, type Project, type Quadrant,
 } from "./context/TaskContext";
 import { countLeaves, type AppSubtask } from "./utils/subtaskTree";
@@ -384,6 +384,9 @@ export function TaskCard({
         {/* Meta row */}
         <div className="flex items-center gap-2 flex-wrap">
           <ProjectPill project={task.project} />
+          {task.tags?.map(tag => (
+            <span key={tag} className="text-[11px] text-[#4F6BED]">#{tag}</span>
+          ))}
           <span className={`flex items-center gap-1 text-[11px] font-mono ${overdue ? "text-rose-400" : isDark ? "text-[#9AA0AC]" : "text-slate-500"}`}>
             <Calendar size={10} /> {fmtDue(task.dueDate)}
           </span>
@@ -419,6 +422,7 @@ type FormState = {
   status: Status;
   dueDate: string;
   effort: string;
+  tags: string;
 };
 
 function TaskFormModal({ onClose, isDark, initial, onCreated }: {
@@ -428,7 +432,7 @@ function TaskFormModal({ onClose, isDark, initial, onCreated }: {
   const [form, setForm] = useState<FormState>({
     title: "", description: "", project: "Faculdade",
     priority: "Média", status: "Pendente",
-    dueDate: "", effort: "",
+    dueDate: "", effort: "", tags: "",
     ...initial,
   });
   const [subtaskInput, setSubtaskInput] = useState("");
@@ -461,6 +465,7 @@ function TaskFormModal({ onClose, isDark, initial, onCreated }: {
     createTask({
       ...form,
       title,
+      tags: parseTags(form.tags),
       dueDate: form.dueDate || toLocalInput(new Date(Date.now() + 7 * 864e5)),
       quadrant: previewQ,
       subtasks: initSubs,
@@ -503,6 +508,12 @@ function TaskFormModal({ onClose, isDark, initial, onCreated }: {
               <input className={inp} placeholder="ex: 2h" value={form.effort}
                 onChange={e => setForm(f => ({ ...f, effort: e.target.value }))} />
             </div>
+          </div>
+
+          <div>
+            <label className={lbl}>Tags</label>
+            <input className={inp} placeholder="ex: prova, urgente" value={form.tags}
+              onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} />
           </div>
 
           <div>
@@ -599,6 +610,7 @@ export function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDa
   const [isEditing, setIsEditing] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
   const [draft, setDraft] = useState({ ...task });
+  const [tagsText, setTagsText] = useState((task.tags ?? []).join(", "));
   const [dirty, setDirty] = useState(false);
 
   const set = <K extends keyof typeof draft>(k: K, v: typeof draft[K]) => {
@@ -614,7 +626,7 @@ export function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDa
     const dueDate = draft.dueDate || task.dueDate;
     // Prazo antigo de tarefa atrasada pode ficar; só não deixa escolher um novo no passado
     if (dueDate !== task.dueDate && dueDate < toLocalInput(new Date())) { window.alert("O prazo já passou. Escolha uma data a partir de agora."); return; }
-    updateTask(task.id, { ...fields, title, dueDate, quadrant: deriveQuadrant(draft.priority, dueDate) });
+    updateTask(task.id, { ...fields, title, dueDate, tags: parseTags(tagsText), quadrant: deriveQuadrant(draft.priority, dueDate) });
     setIsEditing(false);
     setDirty(false);
   };
@@ -624,6 +636,7 @@ export function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDa
       if (!window.confirm("Descartar alterações não salvas?")) return;
     }
     setDraft({ ...task });
+    setTagsText((task.tags ?? []).join(", "));
     setDirty(false);
     setIsEditing(false);
   };
@@ -773,6 +786,21 @@ export function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDa
             )}
           </div>
 
+          {/* Tags */}
+          {(isEditing || !!task.tags?.length) && (
+            <div>
+              <p className={`text-[10px] font-medium uppercase tracking-wide mb-1.5 ${isDark ? "text-[#9AA0AC]" : "text-slate-400"}`}>Tags</p>
+              {isEditing ? (
+                <input className={inp} placeholder="ex: prova, urgente" value={tagsText}
+                  onChange={e => { setTagsText(e.target.value); setDirty(true); }} />
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {task.tags!.map(tag => <span key={tag} className="text-xs px-2 py-0.5 rounded-full bg-[#4F6BED]/10 text-[#4F6BED]">#{tag}</span>)}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Effort */}
           <div>
             <p className={`text-[10px] font-medium uppercase tracking-wide mb-1.5 ${isDark ? "text-[#9AA0AC]" : "text-slate-400"}`}>Esforço estimado</p>
@@ -873,6 +901,9 @@ function HomeScreen({ theme }: { theme: Theme }) {
   const [search, setSearch] = useState("");
   const [activeQ, setActiveQ] = useState<"ALL" | Quadrant>("ALL");
   const [filterProject, setFilterProject] = useState<"Todos" | Project>("Todos");
+  const [filterPriority, setFilterPriority] = useState<"Todas" | Priority>("Todas");
+  const [filterTag, setFilterTag] = useState<string | null>(null);
+  const allTags = [...new Set(tasks.flatMap(t => t.tags ?? []))].sort();
   const [showCreate, setShowCreate] = useState(false);
   const [createInitial, setCreateInitial] = useState<Partial<FormState> | undefined>();
   const [showNote, setShowNote] = useState(false);
@@ -897,8 +928,10 @@ function HomeScreen({ theme }: { theme: Theme }) {
     if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
     if (activeQ !== "ALL" && t.quadrant !== activeQ) return false;
     if (filterProject !== "Todos" && t.project !== filterProject) return false;
+    if (filterPriority !== "Todas" && t.priority !== filterPriority) return false;
+    if (filterTag && !t.tags?.includes(filterTag)) return false;
     return true;
-  });
+  }).sort(byUrgency);
 
   const grouped: Record<Quadrant, AppTask[]> = { Q1: [], Q2: [], Q3: [], Q4: [] };
   filtered.forEach(t => grouped[t.quadrant].push(t));
@@ -994,9 +1027,30 @@ function HomeScreen({ theme }: { theme: Theme }) {
               );
             })}
           </div>
-          <button className={`w-full text-xs ${sub} flex items-center gap-1 justify-center pt-2 hover:text-[#4F6BED] transition-colors`}>
-            <Bookmark size={11} /> Salvar visualização
-          </button>
+          <p className={`text-[10px] font-medium uppercase tracking-wide mt-3 mb-2 ${sub}`}>Prioridade</p>
+          <div className="flex gap-1.5">
+            {(["Todas", ...PRIORITIES] as const).map(pr => (
+              <button key={pr} onClick={() => setFilterPriority(pr)}
+                className={`flex-none text-[11px] font-medium px-2.5 py-1 rounded-full border transition-all ${filterPriority === pr
+                  ? "border-[#4F6BED] text-[#4F6BED]" : isDark ? "border-[#262B36] text-[#9AA0AC]" : "border-slate-200 text-slate-500"}`}>
+                {pr}
+              </button>
+            ))}
+          </div>
+          {allTags.length > 0 && (
+            <>
+              <p className={`text-[10px] font-medium uppercase tracking-wide mt-3 mb-2 ${sub}`}>Tag</p>
+              <div className="flex gap-1.5 flex-wrap">
+                {allTags.map(tag => (
+                  <button key={tag} onClick={() => setFilterTag(f => f === tag ? null : tag)}
+                    className={`flex-none text-[11px] font-medium px-2.5 py-1 rounded-full border transition-all ${filterTag === tag
+                      ? "border-[#4F6BED] text-[#4F6BED]" : isDark ? "border-[#262B36] text-[#9AA0AC]" : "border-slate-200 text-slate-500"}`}>
+                    #{tag}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 

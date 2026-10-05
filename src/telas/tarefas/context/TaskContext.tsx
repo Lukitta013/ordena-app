@@ -48,6 +48,7 @@ export type AppTask = {
   effort: string;
   quadrant: Quadrant;
   subtasks: AppSubtask[];
+  tags?: string[];
   updatedAt: string;
   syncPending: boolean;
 };
@@ -64,6 +65,19 @@ export const PROJECT_COLORS: Record<Project, string> = {
   Manutenção:"#0EA5E9",
   Projetos:  "#8B5CF6",
 };
+// Cores escolhidas pelo usuário em Projetos sobrescrevem as padrão
+try { Object.assign(PROJECT_COLORS, JSON.parse(localStorage.getItem("ordena-cores") ?? "{}")); } catch { /* usa as padrão */ }
+
+// Ordem dentro do quadrante: atrasadas primeiro, depois prazo mais próximo, depois menor esforço; concluídas no fim
+export const byUrgency = (a: AppTask, b: AppTask) =>
+  Number(isDone(a)) - Number(isDone(b)) ||
+  Number(isOverdue(b)) - Number(isOverdue(a)) ||
+  a.dueDate.localeCompare(b.dueDate) ||
+  parseEffort(a.effort) - parseEffort(b.effort);
+
+// "Faculdade, prova" → ["faculdade", "prova"]
+export const parseTags = (s: string) =>
+  [...new Set(s.split(",").map(t => t.trim().toLowerCase()).filter(Boolean))];
 
 export function deriveQuadrant(priority: Priority, dueDate: string): Quadrant {
   const now = new Date();
@@ -294,6 +308,7 @@ type TaskCtx = {
   removeSubtaskFn: (taskId: string, stId: string) => void;
   toggleSubtaskFn: (taskId: string, stId: string) => void;
   dismissToast: () => void;
+  setProjectColor: (p: Project, color: string) => void;
 };
 
 const Ctx = createContext<TaskCtx | null>(null);
@@ -310,6 +325,13 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   });
   useEffect(() => { localStorage.setItem("ordena-tasks", JSON.stringify(tasks)); }, [tasks]);
   const [toast, setToast] = useState<ToastMsg | null>(null);
+  const [, setColorsVersion] = useState(0);
+  const setProjectColor = useCallback((p: Project, color: string) => {
+    PROJECT_COLORS[p] = color;
+    const saved = JSON.parse(localStorage.getItem("ordena-cores") ?? "{}");
+    localStorage.setItem("ordena-cores", JSON.stringify({ ...saved, [p]: color }));
+    setColorsVersion(v => v + 1);
+  }, []);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showToast = useCallback((text: string, undoTask?: AppTask) => {
@@ -389,7 +411,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       tasks, toast,
       createTask, updateTask, deleteTask, restoreTask,
       addSubtaskFn, updateSubtaskFn, removeSubtaskFn, toggleSubtaskFn,
-      dismissToast,
+      dismissToast, setProjectColor,
     }}>
       {children}
     </Ctx.Provider>

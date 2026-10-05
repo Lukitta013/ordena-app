@@ -8,9 +8,9 @@ Autor: Lucas Inácio de Carvalho
 
 - **Tarefas (CRUD completo):** criar, ver, editar, concluir/reabrir e excluir (com opção de desfazer). Cada tarefa tem título, descrição, prazo, prioridade, status, categoria e esforço estimado. O prazo não aceita data ou horário que já passou.
 - **Subtarefas aninhadas:** vários níveis, com o progresso da tarefa principal calculado automaticamente.
-- **Matriz de Eisenhower:** cada tarefa cai em um quadrante (Fazer Agora, Agendar, Interrupções, Baixo Impacto) conforme a prioridade e a proximidade do prazo.
-- **Busca, filtros e nota rápida:** busca por título, filtro por categoria e uma nota rápida que vira tarefa.
-- **Projetos:** tocar numa categoria mostra as tarefas dela.
+- **Matriz de Eisenhower:** cada tarefa cai em um quadrante (Fazer Agora, Agendar, Interrupções, Baixo Impacto) conforme a prioridade e a proximidade do prazo. Dentro do quadrante, atrasadas vêm primeiro, depois o prazo mais próximo e o menor esforço.
+- **Tags, busca e filtros:** tags nas tarefas, busca por título e filtros combinados por categoria, prioridade e tag, além de uma nota rápida que vira tarefa.
+- **Projetos:** tocar numa categoria mostra as tarefas dela e deixa trocar a cor.
 - **Agenda:** calendário mensal com setas para voltar e avançar o mês; os dias com tarefa ficam marcados e tocar num dia lista as tarefas com prazo nele.
 - **Análises:** números de concluídas, em aberto e atrasadas e o fechamento do dia, calculados a partir das suas tarefas. Os alertas de prazo ficam na Agenda.
 
@@ -46,9 +46,9 @@ As 27 user stories do backlog original, com o estado de cada uma no app.
 |----|----------|--------|--------|
 | US01 | Criar tarefas estruturadas (título, descrição, prazo, prioridade, esforço) com uso offline | ✅ Implementado | CRUD completo, salvo no aparelho. Sem SQLite nem sincronização com servidor. |
 | US02 | Subtarefas em vários níveis com progresso automático | ✅ Implementado | Subtarefas aninhadas com barra de progresso. Sem responsáveis, por ser pessoal. |
-| US03 | Lista ordenada por matriz de Eisenhower | 🟡 Parcial | Quadrantes por prioridade e prazo. Ainda não pondera esforço, dependências e histórico de atrasos. |
-| US04 | Projetos temáticos com cor e status personalizados | 🟡 Parcial | Categorias fixas com cor e ícone, e lista de tarefas por categoria. Status são os padrões. |
-| US05 | Tags, filtros combinados e anotações rápidas | 🟡 Parcial | Busca, filtro por categoria e nota rápida que vira tarefa. Sem tags. |
+| US03 | Lista ordenada por matriz de Eisenhower | ✅ Implementado | Quadrantes por prioridade e prazo; dentro de cada um, atrasadas primeiro, depois prazo mais próximo e menor esforço. Dependências entre tarefas são a US07. |
+| US04 | Projetos temáticos com cor e status personalizados | 🟡 Parcial | Categorias com ícone, lista de tarefas por categoria e cor que você escolhe. Falta criar categorias novas e status personalizados. |
+| US05 | Tags, filtros combinados e anotações rápidas | ✅ Implementado | Tags nas tarefas, filtros combinados (categoria, prioridade e tag) junto com a busca, e nota rápida que vira tarefa. |
 
 ### Sprint 2
 

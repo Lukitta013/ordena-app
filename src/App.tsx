@@ -3,7 +3,7 @@ import {
   CheckSquare, Folder, Calendar, BarChart2, Settings, Sun, Moon, Monitor, ChevronLeft, ChevronRight, ArrowLeft, Plus, LogOut, MapPin, Repeat, AlertCircle, Link2, TrendingUp, Clock, Heart, Target, HardDrive, Wrench, Copy, Search, Moon as MoonIcon,
 } from "lucide-react";
 import TarefasHome, { TaskCard, TaskDetailModal } from "./telas/tarefas";
-import { TaskProvider, useTasks, isDone, isOverdue, sameDay } from "./telas/tarefas/context/TaskContext";
+import { TaskProvider, useTasks, isDone, isOverdue, sameDay, PROJECT_COLORS, type Project } from "./telas/tarefas/context/TaskContext";
 import AuthFlow from "./telas/login";
 import {
   GpsSection, DupSection, CalSection,
@@ -162,18 +162,18 @@ function TarefasScreen({
 // ── ProjetosScreen ────────────────────────────────────────────────
 
 const PROJETOS_LIST = [
-  { id: "Faculdade",  desc: "Disciplinas e trabalhos",  color: "#6366F1" },
-  { id: "Trabalho",   desc: "Projetos profissionais",   color: "#3B82F6" },
-  { id: "Finanças",   desc: "Orçamento e contas",       color: "#10B981" },
-  { id: "Saúde",      desc: "Rotina e bem-estar",       color: "#F43F5E" },
-  { id: "Pessoal",    desc: "Metas pessoais",           color: "#F59E0B" },
-  { id: "Lazer",      desc: "Entretenimento",           color: "#D946EF" },
-  { id: "Manutenção", desc: "Casa e equipamentos",      color: "#0EA5E9" },
-  { id: "Projetos",   desc: "Iniciativas diversas",     color: "#8B5CF6" },
+  { id: "Faculdade",  desc: "Disciplinas e trabalhos" },
+  { id: "Trabalho",   desc: "Projetos profissionais" },
+  { id: "Finanças",   desc: "Orçamento e contas" },
+  { id: "Saúde",      desc: "Rotina e bem-estar" },
+  { id: "Pessoal",    desc: "Metas pessoais" },
+  { id: "Lazer",      desc: "Entretenimento" },
+  { id: "Manutenção", desc: "Casa e equipamentos" },
+  { id: "Projetos",   desc: "Iniciativas diversas" },
 ];
 
 function CategoriaView({ id, theme, onBack }: { id: string; theme: "dark" | "light"; onBack: () => void }) {
-  const { tasks } = useTasks();
+  const { tasks, setProjectColor } = useTasks();
   const [detailId, setDetailId] = useState<string | null>(null);
   const list = tasks
     .filter(t => t.project === id)
@@ -188,6 +188,11 @@ function CategoriaView({ id, theme, onBack }: { id: string; theme: "dark" | "lig
         <p className="text-[13px] mb-1" style={{ color: "var(--sub)" }}>
           {pending === 0 ? "Nada pendente aqui." : `${pending} ${pending === 1 ? "tarefa pendente" : "tarefas pendentes"}`}
         </p>
+        <label className="flex items-center gap-2 text-[13px] mb-2" style={{ color: "var(--sub)" }}>
+          Cor da categoria
+          <input type="color" value={PROJECT_COLORS[id as Project]} onChange={e => setProjectColor(id as Project, e.target.value)}
+            className="w-8 h-8 rounded-lg bg-transparent border-0 p-0" />
+        </label>
         {list.length === 0 && (
           <p className="text-[13px]" style={{ color: "var(--tertiary)" }}>Nenhuma tarefa nesta categoria ainda.</p>
         )}
@@ -230,7 +235,7 @@ function ProjetosScreen({
             key={p.id}
             onClick={() => setCategoria(p.id)}
             className="rounded-xl p-4 text-left active:scale-[0.98] transition-transform"
-            style={{ background: "var(--surface)", border: "1px solid var(--border)", borderLeft: `3px solid ${p.color}` }}
+            style={{ background: "var(--surface)", border: "1px solid var(--border)", borderLeft: `3px solid ${PROJECT_COLORS[p.id as Project]}` }}
           >
             <p className="font-semibold text-[14px] mb-0.5" style={{ color: "var(--text)" }}>{p.id}</p>
             <p className="text-[12px]" style={{ color: "var(--sub)" }}>{p.desc}</p>
