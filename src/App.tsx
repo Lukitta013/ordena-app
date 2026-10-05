@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import {
   CheckSquare, Folder, Calendar, BarChart2, Settings, Sun, Moon, Monitor, ChevronRight, ArrowLeft, Plus, LogOut, MapPin, Repeat, AlertCircle, Link2, TrendingUp, Clock, Heart, Target, HardDrive, Wrench, Copy, Search, Moon as MoonIcon,
 } from "lucide-react";
-import TarefasHome from "./telas/tarefas";
+import TarefasHome, { TaskCard, TaskDetailModal } from "./telas/tarefas";
 import { TaskProvider, useTasks, isDone, isOverdue, sameDay } from "./telas/tarefas/context/TaskContext";
 import AuthFlow from "./telas/login";
 import {
@@ -172,6 +172,34 @@ const PROJETOS_LIST = [
   { id: "Projetos",   desc: "Iniciativas diversas",     color: "#8B5CF6" },
 ];
 
+function CategoriaView({ id, theme, onBack }: { id: string; theme: "dark" | "light"; onBack: () => void }) {
+  const { tasks } = useTasks();
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const list = tasks
+    .filter(t => t.project === id)
+    .sort((a, b) => Number(isDone(a)) - Number(isDone(b)) || a.dueDate.localeCompare(b.dueDate));
+  const detail = tasks.find(t => t.id === detailId);
+  const pending = list.filter(t => !isDone(t)).length;
+
+  return (
+    <div className="flex flex-col h-full" style={{ background: "var(--bg)" }}>
+      <BackHeader title={id} onBack={onBack} />
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
+        <p className="text-[13px] mb-1" style={{ color: "var(--sub)" }}>
+          {pending === 0 ? "Nada pendente aqui." : `${pending} ${pending === 1 ? "tarefa pendente" : "tarefas pendentes"}`}
+        </p>
+        {list.length === 0 && (
+          <p className="text-[13px]" style={{ color: "var(--tertiary)" }}>Nenhuma tarefa nesta categoria ainda.</p>
+        )}
+        {list.map(t => (
+          <TaskCard key={t.id} task={t} isDark={theme === "dark"} highlighted={false} onClick={() => setDetailId(t.id)} />
+        ))}
+      </div>
+      {detail && <TaskDetailModal task={detail} isDark={theme === "dark"} onClose={() => setDetailId(null)} />}
+    </div>
+  );
+}
+
 function ProjetosScreen({
   theme,
 }: {
@@ -180,6 +208,9 @@ function ProjetosScreen({
   const [subPage, setSubPage] = useState<string | null>(null);
   const { tasks } = useTasks();
 
+  const [categoria, setCategoria] = useState<string | null>(null);
+
+  if (categoria) return <CategoriaView id={categoria} theme={theme} onBack={() => setCategoria(null)} />;
   if (subPage) return <SubPageView id={subPage} theme={theme} onBack={() => setSubPage(null)} />;
 
   return (
@@ -195,9 +226,10 @@ function ProjetosScreen({
       {/* Project grid */}
       <div className="px-4 grid grid-cols-2 gap-3 mb-2">
         {PROJETOS_LIST.map(p => (
-          <div
+          <button
             key={p.id}
-            className="rounded-xl p-4"
+            onClick={() => setCategoria(p.id)}
+            className="rounded-xl p-4 text-left active:scale-[0.98] transition-transform"
             style={{ background: "var(--surface)", border: "1px solid var(--border)", borderLeft: `3px solid ${p.color}` }}
           >
             <p className="font-semibold text-[14px] mb-0.5" style={{ color: "var(--text)" }}>{p.id}</p>
@@ -205,7 +237,7 @@ function ProjetosScreen({
             <p className="text-[11px] font-mono mt-1" style={{ color: "var(--tertiary)" }}>
               {tasks.filter(t => t.project === p.id && !isDone(t)).length} em aberto
             </p>
-          </div>
+          </button>
         ))}
       </div>
 

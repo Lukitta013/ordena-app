@@ -351,7 +351,7 @@ function SubtaskTree({ task }: { task: AppTask }) {
 
 // ── TaskCard ──────────────────────────────────────────────────────
 
-function TaskCard({
+export function TaskCard({
   task, isDark, highlighted, onClick,
 }: {
   task: AppTask;
@@ -589,7 +589,7 @@ function TaskFormModal({ onClose, isDark, initial, onCreated }: {
 
 // ── TaskDetailModal ───────────────────────────────────────────────
 
-function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDark: boolean; onClose: () => void }) {
+export function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDark: boolean; onClose: () => void }) {
   const { updateTask, deleteTask } = useTasks();
   const [isEditing, setIsEditing] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
