@@ -117,7 +117,7 @@ export function GanttSection({ isDark }: { isDark: boolean }) {
           ))}
           {/* Dependency arrows hint */}
           <div className="mt-2 pt-2 border-t border-slate-700/30">
-            <p className="text-[10px] text-slate-500 text-center">↔ Barras interativas • Setas de dependência: Backend API → Auth → Deploy</p>
+            <p className="text-[10px] text-slate-500 text-center">↔ Barras interativas • Setas de dependência: Pesquisa → Introdução → Slides → Entrega</p>
           </div>
         </div>
       </div>
@@ -228,6 +228,11 @@ export function TelemetrySection({ isDark }: { isDark: boolean }) {
 
 // ── Predictive ────────────────────────────────────────────────────
 export function PredictSection({ isDark }: { isDark: boolean }) {
+  const { tasks } = useTasks();
+  const velocity = 4.2; // ponytail: ritmo fixo de exemplo, calcular pelo histórico quando houver data de conclusão
+  const remaining = tasks.filter(t => !isDone(t)).length;
+  const donePct = tasks.length ? Math.round((tasks.filter(isDone).length / tasks.length) * 100) : 0;
+  const eta = new Date(Date.now() + Math.ceil(remaining / velocity) * 86400000);
   const text = isDark ? "text-slate-100" : "text-slate-900";
   const sub = isDark ? "text-slate-400" : "text-slate-500";
   const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
@@ -239,21 +244,21 @@ export function PredictSection({ isDark }: { isDark: boolean }) {
         <div className="flex items-start gap-3 mb-3">
           <div className="flex-1">
             <p className={`text-[10px] ${sub} mb-0.5`}>Velocidade atual</p>
-            <p className="text-lg font-bold text-indigo-400">4.2 tasks/day</p>
+            <p className="text-lg font-bold text-indigo-400">4,2 tarefas/dia</p>
           </div>
           <div className="flex-1">
             <p className={`text-[10px] ${sub} mb-0.5`}>Tarefas restantes</p>
-            <p className="text-lg font-bold text-amber-400">14</p>
+            <p className="text-lg font-bold text-amber-400">{remaining}</p>
           </div>
           <div className="flex-1">
             <p className={`text-[10px] ${sub} mb-0.5`}>Data prevista</p>
-            <p className="text-sm font-bold text-emerald-400">25/Set/2025</p>
+            <p className="text-sm font-bold text-emerald-400">{eta.toLocaleDateString("pt-BR")}</p>
           </div>
         </div>
         <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
-          <div className="h-full w-[58%] bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-full" />
+          <div style={{ width: `${donePct}%` }} className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-full" />
         </div>
-        <p className={`text-[10px] ${sub} mt-1`}>58% da semana concluída</p>
+        <p className={`text-[10px] ${sub} mt-1`}>{donePct}% das tarefas concluídas</p>
       </div>
     </div>
   );
@@ -279,11 +284,11 @@ export function BurnoutSection({ isDark }: { isDark: boolean }) {
             <Coffee size={16} className="text-orange-400 flex-none mt-0.5" />
             <div>
               <p className="text-xs font-semibold text-orange-400 mb-0.5">Alerta de Burnout Preditivo</p>
-              <p className="text-xs text-orange-200">
+              <p className={`text-xs ${isDark ? "text-orange-200" : "text-orange-800"}`}>
                 Você acumulou mais de <strong>8 horas</strong> de tarefas críticas hoje.
                 Sugestão de Pausa de <strong>15 minutos</strong> recomendada.
               </p>
-              <button className="mt-2 text-[10px] bg-orange-500/30 text-orange-300 px-3 py-1 rounded-full">
+              <button className={`mt-2 text-[10px] bg-orange-500/30 ${isDark ? "text-orange-300" : "text-orange-800"} px-3 py-1 rounded-full`}>
                 Iniciar Pausa Guiada
               </button>
             </div>

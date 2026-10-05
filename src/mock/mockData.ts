@@ -86,7 +86,7 @@ export interface OKR {
 }
 
 export const PROJECTS = [
-  { id: "p1", name: "App Ordena - Sprint Core", color: "#6366F1" },
+  { id: "p1", name: "Estudos e Trabalho", color: "#6366F1" },
   { id: "p2", name: "Backend Node.js", color: "#10B981" },
   { id: "p3", name: "Infraestrutura MinIO/S3", color: "#F59E0B" },
   { id: "p4", name: "Design System Figma", color: "#EC4899" },
@@ -133,7 +133,7 @@ export const TASKS: Task[] = [
     id: "t1",
     title: "Corrigir vazamento de memória no build",
     description: "O processo de build está consumindo 4GB+ de RAM e crashando em ambientes com menos de 8GB. Investigar memory leaks no webpack config e no processo de bundling.",
-    project: "App Ordena - Sprint Core",
+    project: "Estudos e Trabalho",
     projectColor: "#6366F1",
     priority: "ALTA",
     status: "Em Andamento",
@@ -238,7 +238,7 @@ export const TASKS: Task[] = [
     id: "t5",
     title: "Atualizar planilha de gastos semanais",
     description: "Lançar os gastos da semana e conferir o saldo do mês.",
-    project: "App Ordena - Sprint Core",
+    project: "Estudos e Trabalho",
     projectColor: "#6366F1",
     priority: "MEDIA",
     status: "Pendente",
@@ -389,7 +389,7 @@ export const JSON_RULES: JsonRule[] = [
 
 export const OKRS: OKR[] = [
   { id: "okr1", goal: "Concluir tarefas técnicas hoje", target: 4, current: 3, unit: "tarefas" },
-  { id: "okr2", goal: "Taxa de cobertura de testes", target: 80, current: 68, unit: "%" },
+  { id: "okr2", goal: "Dias de treino na semana", target: 5, current: 3, unit: "dias" },
   { id: "okr3", goal: "Horas de estudo na semana", target: 10, current: 6.5, unit: "horas" },
 ];
 
@@ -411,12 +411,12 @@ export const MONTHLY_DATA = [
 ];
 
 export const GANTT_TASKS = [
-  { id: "g1", title: "Setup Infraestrutura", start: 1, duration: 3, color: "#F59E0B", deps: [] },
-  { id: "g2", title: "Backend API Core", start: 3, duration: 5, color: "#10B981", deps: ["g1"] },
-  { id: "g3", title: "Auth OAuth2 + JWT", start: 5, duration: 4, color: "#6366F1", deps: ["g2"] },
-  { id: "g4", title: "Frontend React", start: 4, duration: 6, color: "#EC4899", deps: ["g1"] },
-  { id: "g5", title: "Testes E2E Cypress", start: 8, duration: 3, color: "#14B8A6", deps: ["g2", "g4"] },
-  { id: "g6", title: "Deploy Produção", start: 11, duration: 2, color: "#F43F5E", deps: ["g5"] },
+  { id: "g1", title: "Pesquisar o tema do TCC", start: 0, duration: 3, color: "#F59E0B", deps: [] },
+  { id: "g2", title: "Escrever a introdução", start: 3, duration: 3, color: "#10B981", deps: ["g1"] },
+  { id: "g3", title: "Revisar bibliografia", start: 2, duration: 4, color: "#6366F1", deps: ["g1"] },
+  { id: "g4", title: "Montar os slides", start: 6, duration: 3, color: "#EC4899", deps: ["g2"] },
+  { id: "g5", title: "Ensaiar a apresentação", start: 9, duration: 2, color: "#14B8A6", deps: ["g4"] },
+  { id: "g6", title: "Entregar o TCC", start: 11, duration: 2, color: "#F43F5E", deps: ["g5"] },
 ];
 
 export const TEMPLATES = [

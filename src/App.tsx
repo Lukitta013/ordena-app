@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import {
-  CheckSquare, Folder, Calendar, BarChart2, Settings, Sun, Moon, Monitor, ChevronRight, ArrowLeft, Bell, Plus, LogOut, MapPin, Repeat, AlertCircle, Link2, TrendingUp, Clock, Heart, Target, RefreshCw, HardDrive, Wrench, Copy, Search, Moon as MoonIcon,
+  CheckSquare, Folder, Calendar, BarChart2, Settings, Sun, Moon, Monitor, ChevronRight, ArrowLeft, Plus, LogOut, MapPin, Repeat, AlertCircle, Link2, TrendingUp, Clock, Heart, Target, HardDrive, Wrench, Copy, Search, Moon as MoonIcon,
 } from "lucide-react";
 import TarefasHome from "./telas/tarefas";
 import { TaskProvider, useTasks, isDone, isOverdue, sameDay } from "./telas/tarefas/context/TaskContext";
@@ -224,7 +224,7 @@ function ProjetosScreen({
 
 // ── AgendaScreen ──────────────────────────────────────────────────
 
-function MiniCalendar({ taskDays }: { taskDays: Set<number> }) {
+function MiniCalendar({ taskDays, selected, onSelect }: { taskDays: Set<number>; selected: number; onSelect: (d: number) => void }) {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth();
@@ -250,23 +250,29 @@ function MiniCalendar({ taskDays }: { taskDays: Set<number> }) {
       </div>
       <div className="grid grid-cols-7 gap-0.5">
         {cells.map((d, i) => (
-          <div key={i} className="relative aspect-square flex items-center justify-center rounded-full">
+          <button
+            key={i}
+            disabled={!d}
+            onClick={() => d && onSelect(d)}
+            className="relative aspect-square flex items-center justify-center rounded-full"
+          >
             {d && (
               <span
                 className="w-7 h-7 flex items-center justify-center rounded-full text-[13px]"
                 style={{
-                  background: d === today ? "var(--accent)" : "transparent",
-                  color: d === today ? "#fff" : "var(--text)",
-                  fontWeight: d === today ? 600 : 400,
+                  background: d === selected ? "var(--accent)" : "transparent",
+                  color: d === selected ? "#fff" : d === today ? "var(--accent)" : "var(--text)",
+                  fontWeight: d === today || d === selected ? 600 : 400,
+                  border: d === today && d !== selected ? "1px solid var(--accent)" : "none",
                 }}
               >
                 {d}
               </span>
             )}
-            {d && taskDays.has(d) && d !== today && (
+            {d && taskDays.has(d) && d !== selected && (
               <span className="absolute bottom-0.5 w-1 h-1 rounded-full" style={{ background: "var(--accent)" }} />
             )}
-          </div>
+          </button>
         ))}
       </div>
     </div>
@@ -282,8 +288,11 @@ function AgendaScreen({ theme, onOpenTasks }: { theme: "dark" | "light"; onOpenT
       .filter(d => d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear())
       .map(d => d.getDate()),
   );
-  const todayTasks = tasks
-    .filter(t => !isDone(t) && sameDay(t.dueDate, now))
+  const [selDay, setSelDay] = useState(now.getDate());
+  const selDate = new Date(now.getFullYear(), now.getMonth(), selDay);
+  const isToday = selDay === now.getDate();
+  const dayTasks = tasks
+    .filter(t => sameDay(t.dueDate, selDate))
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
   if (subPage) return <SubPageView id={subPage} theme={theme} onBack={() => setSubPage(null)} />;
@@ -302,20 +311,30 @@ function AgendaScreen({ theme, onOpenTasks }: { theme: "dark" | "light"; onOpenT
         className="mx-4 rounded-xl overflow-hidden"
         style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
       >
-        <MiniCalendar taskDays={taskDays} />
+        <MiniCalendar taskDays={taskDays} selected={selDay} onSelect={setSelDay} />
       </div>
 
       {/* Today's tasks note */}
       <div className="mx-4 mt-3 px-4 py-3 rounded-xl" style={{ background: "var(--sunken)", border: "1px solid var(--border)" }}>
-        <p className="text-[12px] font-mono" style={{ color: "var(--tertiary)" }}>HOJE</p>
-        {todayTasks.length === 0 ? (
-          <p className="text-[13px] mt-1" style={{ color: "var(--sub)" }}>Nenhuma tarefa com prazo hoje.</p>
-        ) : todayTasks.map(t => (
+        <p className="text-[12px] font-mono uppercase" style={{ color: "var(--tertiary)" }}>
+          {isToday ? "Hoje" : selDate.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
+          {dayTasks.length > 0 && ` · ${dayTasks.length} ${dayTasks.length === 1 ? "tarefa" : "tarefas"}`}
+        </p>
+        {dayTasks.length === 0 ? (
+          <p className="text-[13px] mt-1" style={{ color: "var(--sub)" }}>
+            Nenhuma tarefa com prazo {isToday ? "hoje" : "neste dia"}.
+          </p>
+        ) : dayTasks.map(t => (
           <button key={t.id} onClick={onOpenTasks} className="w-full flex items-center gap-2 mt-1.5 text-left">
             <span className="text-[12px] font-mono flex-none" style={{ color: "var(--accent)" }}>
               {new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
             </span>
-            <span className="text-[13px] truncate" style={{ color: "var(--text)" }}>{t.title}</span>
+            <span
+              className="text-[13px] truncate"
+              style={{ color: isDone(t) ? "var(--tertiary)" : "var(--text)", textDecoration: isDone(t) ? "line-through" : "none" }}
+            >
+              {t.title}
+            </span>
           </button>
         ))}
       </div>
@@ -468,8 +487,6 @@ function AjustesScreen({
 
       {/* Aplicativo block */}
       <Block title="Aplicativo">
-        <SectionRow icon={Bell} label="Notificações" onPress={() => {}} />
-        <SectionRow icon={RefreshCw} label="Sincronização e Offline" sub="SQLite · fila de sincronização" onPress={() => {}} />
         <SectionRow icon={Wrench} label="Automações" sub="Regras e gatilhos" onPress={() => setSubPage("automacoes")} />
         <SectionRow icon={HardDrive} label="Backup e Exportação" sub="Nuvem e relatório PDF" onPress={() => setSubPage("backup")} />
       </Block>

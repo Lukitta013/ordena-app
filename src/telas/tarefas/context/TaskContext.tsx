@@ -242,8 +242,8 @@ const SEED: AppTask[] = [
   },
   {
     id: "t7",
-    title: "Enviar relatório semanal para o coordenador",
-    description: "Consolidar horas, resumo de entregas e anexar evidências antes das 9h.",
+    title: "Fechar o relatório semanal de horas",
+    description: "Consolidar horas, resumo do que fiz e guardar as evidências antes das 9h.",
     project: "Trabalho",
     priority: "Alta",
     status: "Em Andamento",
@@ -255,7 +255,7 @@ const SEED: AppTask[] = [
     subtasks: [
       { id: "s7a", title: "Consolidar as horas trabalhadas da semana", completed: true,  children: [] },
       { id: "s7b", title: "Escrever o resumo das entregas",            completed: false, children: [] },
-      { id: "s7c", title: "Anexar as evidências e enviar por e-mail",  completed: false, children: [] },
+      { id: "s7c", title: "Guardar as evidências na pasta da semana",  completed: false, children: [] },
     ],
   },
   {
