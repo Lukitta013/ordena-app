@@ -450,11 +450,14 @@ function TaskFormModal({ onClose, isDark, initial, onCreated }: {
   };
 
   const [titleError, setTitleError] = useState(false);
+  const [dateError, setDateError] = useState(false);
 
   const submit = () => {
     // Lê o valor direto do campo: com o teclado do Android aberto, a última palavra pode ainda não ter chegado ao estado
     const title = (titleRef.current?.value ?? form.title).trim();
     if (!title) { setTitleError(true); titleRef.current?.focus(); return; }
+    // O min do campo só limita o seletor; o valor ainda pode ser digitado
+    if (form.dueDate && form.dueDate < toLocalInput(new Date())) { setDateError(true); return; }
     createTask({
       ...form,
       title,
@@ -491,8 +494,9 @@ function TaskFormModal({ onClose, isDark, initial, onCreated }: {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className={lbl}>Prazo</label>
-              <input type="datetime-local" className={inp} value={form.dueDate}
-                onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} />
+              <input type="datetime-local" className={inp} value={form.dueDate} min={toLocalInput(new Date())}
+                onChange={e => { setDateError(false); setForm(f => ({ ...f, dueDate: e.target.value })); }} />
+              {dateError && <p className="text-xs text-rose-400 mt-1">O prazo já passou.</p>}
             </div>
             <div>
               <label className={lbl}>Esforço</label>
@@ -608,6 +612,8 @@ export function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDa
     const title = draft.title.trim();
     if (!title) { window.alert("Dê um título para a tarefa."); return; }
     const dueDate = draft.dueDate || task.dueDate;
+    // Prazo antigo de tarefa atrasada pode ficar; só não deixa escolher um novo no passado
+    if (dueDate !== task.dueDate && dueDate < toLocalInput(new Date())) { window.alert("O prazo já passou. Escolha uma data a partir de agora."); return; }
     updateTask(task.id, { ...fields, title, dueDate, quadrant: deriveQuadrant(draft.priority, dueDate) });
     setIsEditing(false);
     setDirty(false);
@@ -758,7 +764,7 @@ export function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDa
           <div>
             <p className={`text-[10px] font-medium uppercase tracking-wide mb-1.5 ${isDark ? "text-[#9AA0AC]" : "text-slate-400"}`}>Prazo</p>
             {isEditing ? (
-              <input type="datetime-local" className={inp} value={draft.dueDate}
+              <input type="datetime-local" className={inp} value={draft.dueDate} min={toLocalInput(new Date())}
                 onChange={e => set("dueDate", e.target.value)} />
             ) : (
               <span className={`text-sm flex items-center gap-1.5 ${isDark ? "text-[#E8EAED]" : "text-[#141821]"}`}>
