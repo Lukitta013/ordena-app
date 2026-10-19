@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   CheckSquare, Folder, Calendar, BarChart2, Settings, Sun, Moon, Monitor, Trash2, Pencil, ChevronLeft, ChevronRight, ArrowLeft, Plus, LogOut, MapPin, Repeat, AlertCircle, Link2, TrendingUp, Clock, Heart, Target, HardDrive, Wrench, Copy, Search, Moon as MoonIcon,
 } from "lucide-react";
@@ -8,6 +8,8 @@ import {
   FALLBACK_CATEGORY, FIXED_STATUSES, type Category, type StatusDef,
 } from "./telas/tarefas/context/TaskContext";
 import AuthFlow from "./telas/login";
+import { useLocationReminders } from "./nativo/lembretesLocal";
+import { useCalendarAutoSync } from "./nativo/calendario";
 import {
   GpsSection, DupSection, CalSection,
   AlertsSection, SearchSection, RecurSection,
@@ -114,7 +116,7 @@ const PAGES: Record<string, { title: string; C: React.ComponentType<{ isDark: bo
   // Projetos
   gantt:       { title: "Cronograma Gantt", C: GanttSection },
   projecoes:   { title: "Projeções", C: PredictSection },
-  templates:   { title: "Duplicação e Templates", C: DupSection },
+  templates:   { title: "Duplicação e Modelos", C: DupSection },
   // Agenda
   recorrencia: { title: "Tarefas Recorrentes", C: RecurSection },
   geofencing:  { title: "Lembretes por Local", C: GpsSection },
@@ -391,7 +393,7 @@ function ProjetosScreen({
       </Block>
 
       <Block title="Organização">
-        <SectionRow icon={Copy} label="Duplicação e Templates" sub="Rotinas reutilizáveis" onPress={() => setSubPage("templates")} />
+        <SectionRow icon={Copy} label="Duplicação e Modelos" sub="Duplicar tarefas e criar a partir de modelos" onPress={() => setSubPage("templates")} />
       </Block>
     </div>
   );
@@ -463,9 +465,11 @@ function MiniCalendar({ year, month, taskDays, selected, onSelect, onMonth }: {
   );
 }
 
-function AgendaScreen({ theme, onOpenTasks }: { theme: "dark" | "light"; onOpenTasks: () => void }) {
+function AgendaScreen({ theme }: { theme: "dark" | "light" }) {
   const [subPage, setSubPage] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const { tasks } = useTasks();
+  const detail = tasks.find(t => t.id === detailId);
   const now = new Date();
   const [selDate, setSelDate] = useState(() => new Date(now.getFullYear(), now.getMonth(), now.getDate()));
   const year = selDate.getFullYear();
@@ -517,7 +521,7 @@ function AgendaScreen({ theme, onOpenTasks }: { theme: "dark" | "light"; onOpenT
             Nenhuma tarefa com prazo {isToday ? "hoje" : "neste dia"}.
           </p>
         ) : dayTasks.map(t => (
-          <button key={t.id} onClick={onOpenTasks} className="w-full flex items-center gap-2 mt-1.5 text-left">
+          <button key={t.id} onClick={() => setDetailId(t.id)} className="w-full flex items-center gap-2 py-1.5 text-left">
             <span className="text-[12px] font-mono flex-none" style={{ color: "var(--accent)" }}>
               {new Date(t.dueDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
             </span>
@@ -534,11 +538,12 @@ function AgendaScreen({ theme, onOpenTasks }: { theme: "dark" | "light"; onOpenT
       {/* Lembretes block */}
       <Block title="Lembretes e Rotinas">
         <SectionRow icon={Repeat} label="Tarefas Recorrentes" sub="Diárias, semanais e mensais" onPress={() => setSubPage("recorrencia")} />
-        <SectionRow icon={MapPin} label="Lembretes por Local" sub="Geofencing por proximidade" onPress={() => setSubPage("geofencing")} />
+        <SectionRow icon={MapPin} label="Lembretes por Local" sub="Aviso ao chegar perto de um lugar" onPress={() => setSubPage("geofencing")} />
         <SectionRow icon={AlertCircle} label="Alertas de Prazo" sub="Notificações configuráveis" onPress={() => setSubPage("alertas")} />
-        <SectionRow icon={Link2} label="Integrações" sub="Google Calendar" onPress={() => setSubPage("integracoes")} />
+        <SectionRow icon={Link2} label="Integrações" sub="Calendário do Android e Google Calendar" onPress={() => setSubPage("integracoes")} />
         <SectionRow icon={Search} label="Busca e Auditoria" sub="Busca tolerante a erros e histórico" onPress={() => setSubPage("busca")} />
       </Block>
+      {detail && <TaskDetailModal task={detail} isDark={theme === "dark"} onClose={() => setDetailId(null)} />}
     </div>
   );
 }
@@ -796,6 +801,17 @@ function BottomNav({ active, onChange }: { active: NavTab; onChange: (t: NavTab)
   );
 }
 
+// ── Serviços nativos (rodam em qualquer aba) ──────────────────────
+
+function NativeServices({ onTab }: { onTab: () => void }) {
+  const { setFocusTaskId } = useTasks();
+  // Toque na notificação de lembrete: vai para Tarefas e abre a tarefa
+  const openTask = useCallback((id: string) => { onTab(); setFocusTaskId(id); }, [onTab, setFocusTaskId]);
+  useLocationReminders(openTask);
+  useCalendarAutoSync();
+  return null;
+}
+
 // ── App ───────────────────────────────────────────────────────────
 
 export default function App() {
@@ -805,6 +821,7 @@ export default function App() {
   const [navTab, setNavTab] = useState<NavTab>("tarefas");
 
   const handleNavChange = (tab: NavTab) => setNavTab(tab);
+  const goToTasks = useCallback(() => setNavTab("tarefas"), []);
 
   const handleLogout = () => {
     setIsAuthenticated(false);
@@ -838,7 +855,7 @@ export default function App() {
     switch (navTab) {
       case "tarefas":  return <TarefasScreen  theme={theme} />;
       case "projetos": return <ProjetosScreen  theme={theme} />;
-      case "agenda":   return <AgendaScreen    theme={theme} onOpenTasks={() => setNavTab("tarefas")} />;
+      case "agenda":   return <AgendaScreen    theme={theme} />;
       case "analises": return <AnalisesScreen  theme={theme} />;
       case "ajustes":  return (
         <AjustesScreen
@@ -854,6 +871,7 @@ export default function App() {
   return (
     // TaskProvider fica aqui (e não dentro da aba Tarefas) para as tarefas não sumirem ao trocar de aba
     <TaskProvider>
+    <NativeServices onTab={goToTasks} />
     <div
       className="flex h-screen"
       style={{ background: "var(--bg)" }}

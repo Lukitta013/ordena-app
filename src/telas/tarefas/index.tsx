@@ -1,16 +1,19 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Plus, Search, X, ChevronRight, ChevronDown, Calendar, Filter,
-  FileText, Pencil, Trash2,
+  FileText, Pencil, Trash2, Copy, BookmarkPlus, Lock, Paperclip, MapPin, StickyNote,
   CheckCircle2, Circle, Clock,
   GraduationCap, Briefcase, Wallet, HeartPulse, User, Gamepad2, Wrench, FolderKanban,
   type LucideIcon,
 } from "lucide-react";
 import {
-  useTasks, deriveQuadrant, toLocalInput, PROJECT_COLORS, STATUS_COLORS, byUrgency, parseTags,
+  useTasks, deriveQuadrant, toLocalInput, PROJECT_COLORS, STATUS_COLORS, byUrgency, parseTags, blockersOf, freshCopy,
   type AppTask, type Priority, type Status, type Project, type Quadrant,
 } from "./context/TaskContext";
 import { countLeaves, type AppSubtask } from "./utils/subtaskTree";
+import {
+  DependenciesSection, BlockedNotice, LocationSection, CalendarButton, NotesSection, AttachmentsSection, DoneIcon,
+} from "./extras";
 
 type Theme = "dark" | "light";
 
@@ -363,21 +366,35 @@ export function TaskCard({
   highlighted: boolean;
   onClick: () => void;
 }) {
+  const { tasks, updateTask, notify } = useTasks();
   const { completed, total } = countLeaves(task.subtasks);
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
   const projColor = PROJECT_COLORS[task.project];
   const overdue = fmtDue(task.dueDate) === "Atrasada";
   const done = task.status === "Concluída";
+  const blocked = !done && blockersOf(task, tasks).length > 0;
   const priorityBorder = PRIORITY_BORDER[task.priority];
 
+  const toggleDone = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (blocked) { notify(`🔒 Conclua antes: ${blockersOf(task, tasks).map(b => b.title).join(", ")}`); return; }
+    updateTask(task.id, { status: done ? "Pendente" : "Concluída" });
+  };
+
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className={`w-full text-left flex gap-3 p-3 rounded-xl border border-l-4 ${priorityBorder} transition-all duration-200 active:scale-[0.985]
+      onKeyDown={e => { if (e.key === "Enter") onClick(); }}
+      className={`w-full text-left flex gap-2 p-3 pl-2 rounded-xl border border-l-4 cursor-pointer ${priorityBorder} transition-all duration-200 active:scale-[0.985]
         ${isDark ? "bg-[#171A21] hover:bg-[#1E222B] border-[#262B36]" : "bg-white hover:bg-slate-50 border-slate-200"}
         ${highlighted ? "ring-2 ring-[#4F6BED]" : ""}
       `}
     >
+      <button onClick={toggleDone} aria-label={done ? "Reabrir tarefa" : "Concluir tarefa"} className="flex-none self-start p-1 -m-0.5">
+        {blocked ? <Lock size={18} style={{ color: "var(--warning)" }} /> : <DoneIcon done={done} />}
+      </button>
       <div className="flex-1 min-w-0">
         {/* Title */}
         <p className={`text-[15px] font-medium leading-snug mb-2 ${done ? "line-through text-[#9AA0AC]" : isDark ? "text-[#E8EAED]" : "text-[#141821]"}`}
@@ -399,6 +416,14 @@ export function TaskCard({
               <Clock size={10} /> {task.effort}
             </span>
           )}
+          {blocked && <span className="text-[11px] font-medium" style={{ color: "var(--warning)" }}>Bloqueada</span>}
+          {task.location && <MapPin size={11} className={isDark ? "text-[#9AA0AC]" : "text-slate-400"} aria-label="Tem lembrete por local" />}
+          {!!task.notes?.length && <StickyNote size={11} className={isDark ? "text-[#9AA0AC]" : "text-slate-400"} aria-label="Tem anotações" />}
+          {!!task.attachments?.length && (
+            <span className={`flex items-center gap-0.5 text-[11px] font-mono ${isDark ? "text-[#9AA0AC]" : "text-slate-400"}`}>
+              <Paperclip size={10} /> {task.attachments.length}
+            </span>
+          )}
         </div>
 
         {/* Progress bar */}
@@ -412,7 +437,7 @@ export function TaskCard({
           </div>
         )}
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -432,7 +457,7 @@ type FormState = {
 function TaskFormModal({ onClose, isDark, initial, onCreated }: {
   onClose: () => void; isDark: boolean; initial?: Partial<FormState>; onCreated?: () => void;
 }) {
-  const { createTask, categories } = useTasks();
+  const { createTask, categories, templates } = useTasks();
   const [form, setForm] = useState<FormState>({
     title: "", description: "", project: categories[0]?.name ?? "Pessoal",
     priority: "Média", status: "Pendente",
@@ -459,6 +484,16 @@ function TaskFormModal({ onClose, isDark, initial, onCreated }: {
 
   const [titleError, setTitleError] = useState(false);
   const [dateError, setDateError] = useState(false);
+  const [fromTemplate, setFromTemplate] = useState<string | null>(null);
+
+  const applyTemplate = (id: string) => {
+    const tpl = templates.find(t => t.id === id);
+    if (!tpl) return;
+    const d = tpl.data;
+    setForm(f => ({ ...f, title: d.title, description: d.description, project: d.project, priority: d.priority, effort: d.effort, tags: (d.tags ?? []).join(", ") }));
+    setInitSubs(freshCopy(d.subtasks));
+    setFromTemplate(id);
+  };
 
   const submit = () => {
     // Lê o valor direto do campo: com o teclado do Android aberto, a última palavra pode ainda não ter chegado ao estado
@@ -473,6 +508,7 @@ function TaskFormModal({ onClose, isDark, initial, onCreated }: {
       dueDate: form.dueDate || toLocalInput(new Date(Date.now() + 7 * 864e5)),
       quadrant: previewQ,
       subtasks: initSubs,
+      ...(fromTemplate ? { notes: templates.find(t => t.id === fromTemplate)?.data.notes, location: templates.find(t => t.id === fromTemplate)?.data.location } : {}),
     });
     onCreated?.();
     onClose();
@@ -488,6 +524,20 @@ function TaskFormModal({ onClose, isDark, initial, onCreated }: {
         </div>
 
         <div className="flex-1 min-h-0 px-5 py-4 space-y-3 overflow-y-auto scrollbar-hide">
+          {templates.length > 0 && (
+            <div>
+              <label className={lbl}>Começar de um modelo</label>
+              <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-1">
+                {templates.map(t => (
+                  <button key={t.id} onClick={() => applyTemplate(t.id)}
+                    className={`flex-none text-xs font-medium px-3 py-1.5 rounded-full border transition-all ${fromTemplate === t.id
+                      ? "border-[#4F6BED] bg-[#4F6BED]/10 text-[#4F6BED]" : isDark ? "border-[#262B36] text-[#9AA0AC]" : "border-slate-200 text-slate-500"}`}>
+                    {t.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div>
             <label className={lbl}>Título *</label>
             <input ref={titleRef} className={inp} placeholder="O que precisa ser feito?" value={form.title}
@@ -607,8 +657,11 @@ function TaskFormModal({ onClose, isDark, initial, onCreated }: {
 // ── TaskDetailModal ───────────────────────────────────────────────
 
 export function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDark: boolean; onClose: () => void }) {
-  const { updateTask, deleteTask } = useTasks();
+  const { tasks, updateTask, deleteTask, duplicateTask, saveTemplate, templates } = useTasks();
   const [isEditing, setIsEditing] = useState(false);
+  const [error, setError] = useState("");
+  const blockers = blockersOf(task, tasks);
+  const done = task.status === "Concluída";
   const [confirmDel, setConfirmDel] = useState(false);
   const [draft, setDraft] = useState({ ...task });
   const [tagsText, setTagsText] = useState((task.tags ?? []).join(", "));
@@ -623,11 +676,15 @@ export function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDa
     // Não regrava subtasks: elas podem ter mudado enquanto o modo de edição estava aberto
     const { subtasks: _ignored, ...fields } = draft;
     const title = draft.title.trim();
-    if (!title) { window.alert("Dê um título para a tarefa."); return; }
+    if (!title) { setError("Dê um título para a tarefa."); return; }
     const dueDate = draft.dueDate || task.dueDate;
     // Prazo antigo de tarefa atrasada pode ficar; só não deixa escolher um novo no passado
-    if (dueDate !== task.dueDate && dueDate < toLocalInput(new Date())) { window.alert("O prazo já passou. Escolha uma data a partir de agora."); return; }
-    updateTask(task.id, { ...fields, title, dueDate, tags: parseTags(tagsText), quadrant: deriveQuadrant(draft.priority, dueDate) });
+    if (dueDate !== task.dueDate && dueDate < toLocalInput(new Date())) { setError("O prazo já passou. Escolha uma data a partir de agora."); return; }
+    if (draft.status === "Concluída" && !done && blockers.length) { setError(`Conclua antes: ${blockers.map(b => b.title).join(", ")}.`); return; }
+    // Só os campos do formulário: dependências, anexos, anotações e local são salvos na hora pelas próprias seções
+    const { dependsOn: _d, attachments: _a, notes: _n, location: _l, ...formFields } = fields;
+    updateTask(task.id, { ...formFields, title, dueDate, tags: parseTags(tagsText), quadrant: deriveQuadrant(draft.priority, dueDate) });
+    setError("");
     setIsEditing(false);
     setDirty(false);
   };
@@ -639,6 +696,7 @@ export function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDa
     setDraft({ ...task });
     setTagsText((task.tags ?? []).join(", "));
     setDirty(false);
+    setError("");
     setIsEditing(false);
   };
 
@@ -681,10 +739,13 @@ export function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDa
     );
   }
 
+  const iconBtn = `p-2 rounded-xl transition-colors ${isDark ? "hover:bg-[#1E222B] text-[#9AA0AC] hover:text-[#4F6BED]" : "hover:bg-slate-100 text-slate-400 hover:text-[#4F6BED]"}`;
+  const alreadyTemplate = templates.some(t => t.name === task.title);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm">
-      <div className={`w-full max-w-[390px] rounded-t-3xl border-t shadow-2xl flex flex-col ${isDark ? "bg-[#171A21] border-[#262B36]" : "bg-white border-slate-200"}`}
-        style={{ maxHeight: "88dvh" }}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={tryClose}>
+      <div onClick={e => e.stopPropagation()} className={`w-full max-w-[390px] rounded-t-3xl border-t shadow-2xl flex flex-col ${isDark ? "bg-[#171A21] border-[#262B36]" : "bg-white border-slate-200"}`}
+        style={{ maxHeight: "92dvh" }}>
         <div className="w-10 h-1 bg-[#262B36] rounded-full mx-auto mt-3 mb-3 flex-none" />
 
         {/* Header */}
@@ -699,16 +760,27 @@ export function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDa
           ) : (
             <h2 className={`flex-1 font-semibold text-sm leading-snug min-w-0 ${isDark ? "text-[#E8EAED]" : "text-[#141821]"}`}>{task.title}</h2>
           )}
-          <div className="flex items-center gap-1 flex-none">
-            <button onClick={() => setIsEditing(e => !e)}
+          <div className="flex items-center gap-0.5 flex-none">
+            {!isEditing && (
+              <>
+                <button title="Duplicar" aria-label="Duplicar tarefa" onClick={() => { duplicateTask(task.id); onClose(); }} className={iconBtn}>
+                  <Copy size={16} />
+                </button>
+                <button title="Salvar como modelo" aria-label="Salvar como modelo" disabled={alreadyTemplate}
+                  onClick={() => saveTemplate(task, task.title)} className={`${iconBtn} disabled:opacity-30`}>
+                  <BookmarkPlus size={16} />
+                </button>
+              </>
+            )}
+            <button title="Editar" aria-label="Editar tarefa" onClick={() => setIsEditing(e => !e)}
               className={`p-2 rounded-xl transition-colors ${isEditing ? "bg-[#4F6BED]/20 text-[#4F6BED]" : isDark ? "hover:bg-[#1E222B] text-[#9AA0AC] hover:text-[#4F6BED]" : "hover:bg-slate-100 text-slate-400 hover:text-[#4F6BED]"}`}>
               <Pencil size={16} />
             </button>
-            <button onClick={() => setConfirmDel(true)}
+            <button title="Excluir" aria-label="Excluir tarefa" onClick={() => setConfirmDel(true)}
               className={`p-2 rounded-xl transition-colors ${isDark ? "hover:bg-rose-500/10 text-[#9AA0AC] hover:text-rose-500" : "hover:bg-rose-50 text-slate-400 hover:text-rose-500"}`}>
               <Trash2 size={16} />
             </button>
-            <button onClick={tryClose} className="p-2 rounded-xl text-[#9AA0AC] hover:text-[#E8EAED] transition-colors">
+            <button aria-label="Fechar" onClick={tryClose} className="p-2 rounded-xl text-[#9AA0AC] hover:text-[#E8EAED] transition-colors">
               <X size={18} />
             </button>
           </div>
@@ -716,6 +788,8 @@ export function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDa
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto scrollbar-hide px-5 py-4 space-y-4">
+          {error && <p className="text-xs px-3 py-2 rounded-xl bg-rose-500/10 text-rose-500">{error}</p>}
+          <BlockedNotice task={task} />
           {isEditing ? (
             <textarea rows={3} className={inp} value={draft.description}
               onChange={e => set("description", e.target.value)} placeholder="Descrição..." />
@@ -814,11 +888,12 @@ export function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDa
           </div>
 
           {!isEditing && (
-            <button onClick={() => updateTask(task.id, { status: task.status === "Concluída" ? "Pendente" : "Concluída" })}
-              className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-colors ${task.status === "Concluída"
+            <button disabled={!done && blockers.length > 0}
+              onClick={() => updateTask(task.id, { status: done ? "Pendente" : "Concluída" })}
+              className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-40 ${done
                 ? isDark ? "border border-[#262B36] text-[#9AA0AC]" : "border border-slate-200 text-slate-500"
                 : "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"}`}>
-              {task.status === "Concluída" ? <><Circle size={15} /> Reabrir tarefa</> : <><CheckCircle2 size={15} /> Marcar como concluída</>}
+              {done ? <><Circle size={15} /> Reabrir tarefa</> : blockers.length ? <><Lock size={15} /> Bloqueada por dependências</> : <><CheckCircle2 size={15} /> Marcar como concluída</>}
             </button>
           )}
 
@@ -827,6 +902,16 @@ export function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDa
             <p className={`text-xs font-semibold mb-3 ${isDark ? "text-[#E8EAED]" : "text-[#141821]"}`}>Subtarefas</p>
             <SubtaskTree task={task} />
           </div>
+
+          {!isEditing && (
+            <>
+              <DependenciesSection task={task} />
+              <NotesSection task={task} />
+              <AttachmentsSection task={task} />
+              <LocationSection task={task} />
+              <CalendarButton task={task} />
+            </>
+          )}
 
         </div>
 
@@ -896,7 +981,7 @@ function QuickNoteSheet({ isDark, onClose, onConvert }: {
 const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite"; };
 
 function HomeScreen({ theme }: { theme: Theme }) {
-  const { tasks, categories } = useTasks();
+  const { tasks, categories, focusTaskId, setFocusTaskId } = useTasks();
   const [search, setSearch] = useState("");
   const [activeQ, setActiveQ] = useState<"ALL" | Quadrant>("ALL");
   const [filterProject, setFilterProject] = useState<"Todos" | Project>("Todos");
@@ -915,6 +1000,14 @@ function HomeScreen({ theme }: { theme: Theme }) {
   const sub = isDark ? "text-[#9AA0AC]" : "text-slate-500";
   const text = isDark ? "text-[#E8EAED]" : "text-[#141821]";
 
+  // Abre a tarefa pedida de fora (toque numa notificação de lembrete por local)
+  useEffect(() => {
+    if (!focusTaskId) return;
+    const t = tasks.find(x => x.id === focusTaskId);
+    if (t) setDetailTask(t);
+    setFocusTaskId(null);
+  }, [focusTaskId]);
+
   useEffect(() => {
     if (detailTask) {
       const updated = tasks.find(t => t.id === detailTask.id);
@@ -931,6 +1024,9 @@ function HomeScreen({ theme }: { theme: Theme }) {
     if (filterTag && !t.tags?.includes(filterTag)) return false;
     return true;
   }).sort(byUrgency);
+
+  const activeFilters = Number(filterProject !== "Todos") + Number(filterPriority !== "Todas") + Number(!!filterTag);
+  const clearFilters = () => { setFilterProject("Todos"); setFilterPriority("Todas"); setFilterTag(null); setSearch(""); setActiveQ("ALL"); };
 
   const grouped: Record<Quadrant, AppTask[]> = { Q1: [], Q2: [], Q3: [], Q4: [] };
   filtered.forEach(t => grouped[t.quadrant].push(t));
@@ -984,9 +1080,15 @@ function HomeScreen({ theme }: { theme: Theme }) {
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
-          <button onClick={() => setShowFilters(s => !s)}
-            className={`transition-colors ${showFilters ? "text-[#4F6BED]" : sub}`}>
+          {search && (
+            <button aria-label="Limpar busca" onClick={() => setSearch("")} className={sub}><X size={14} /></button>
+          )}
+          <button aria-label="Filtros" onClick={() => setShowFilters(s => !s)}
+            className={`relative p-1 -m-1 transition-colors ${showFilters || activeFilters ? "text-[#4F6BED]" : sub}`}>
             <Filter size={14} />
+            {activeFilters > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 rounded-full bg-[#4F6BED] text-white text-[9px] font-bold flex items-center justify-center">{activeFilters}</span>
+            )}
           </button>
         </div>
       </div>
@@ -1035,6 +1137,9 @@ function HomeScreen({ theme }: { theme: Theme }) {
               </button>
             ))}
           </div>
+          {activeFilters > 0 && (
+            <button onClick={clearFilters} className="mt-3 text-[11px] font-semibold text-[#4F6BED]">Limpar filtros</button>
+          )}
           {allTags.length > 0 && (
             <>
               <p className={`text-[10px] font-medium uppercase tracking-wide mt-3 mb-2 ${sub}`}>Tag</p>
@@ -1068,6 +1173,17 @@ function HomeScreen({ theme }: { theme: Theme }) {
 
       {/* Task list */}
       <div className="px-4 space-y-4">
+        {filtered.length === 0 && (
+          <div className="text-center py-12">
+            <p className={`${text} text-sm font-medium`}>{tasks.length === 0 ? "Nenhuma tarefa ainda" : "Nada encontrado"}</p>
+            <p className={`${sub} text-xs mt-1`}>
+              {tasks.length === 0 ? "Toque no + para criar a primeira." : "Nenhuma tarefa combina com a busca e os filtros."}
+            </p>
+            {tasks.length > 0 && (
+              <button onClick={clearFilters} className="mt-3 text-xs font-semibold text-[#4F6BED]">Limpar busca e filtros</button>
+            )}
+          </div>
+        )}
         {activeQ === "ALL" ? (
           (["Q1", "Q2", "Q3", "Q4"] as Quadrant[]).map(q => {
             const items = grouped[q];
@@ -1094,7 +1210,6 @@ function HomeScreen({ theme }: { theme: Theme }) {
           })
         ) : (
           <div className="space-y-2">
-            {filtered.length === 0 && <p className={`text-center ${sub} text-sm py-12`}>Nenhuma tarefa aqui.</p>}
             {filtered.map(t => (
               <TaskCard key={t.id} task={t} isDark={isDark}
                 highlighted={highlighted === t.id}
@@ -1108,6 +1223,7 @@ function HomeScreen({ theme }: { theme: Theme }) {
       {/* FAB */}
       <button
         onClick={handleCreate}
+        aria-label="Nova tarefa"
         className="fixed bottom-20 right-5 w-14 h-14 rounded-full bg-[#4F6BED] hover:bg-[#3F5BD9] text-white shadow-xl flex items-center justify-center z-40 transition-all active:scale-95"
       >
         <Plus size={24} />
@@ -1117,6 +1233,7 @@ function HomeScreen({ theme }: { theme: Theme }) {
       <button
         onClick={() => setShowNote(true)}
         title="Nota rápida"
+        aria-label="Nota rápida"
         className={`fixed bottom-36 right-5 w-11 h-11 rounded-2xl flex items-center justify-center z-40 shadow-md transition-colors ${isDark ? "bg-[#1E222B] text-[#9AA0AC] hover:bg-[#262B36]" : "bg-slate-200 text-slate-600 hover:bg-slate-300"}`}
       >
         <FileText size={17} />

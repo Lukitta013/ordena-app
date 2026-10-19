@@ -1,270 +1,243 @@
 import { useState, useEffect } from "react";
-import { MapPin, Copy, Bell, Search, RefreshCw, CheckCircle2, X, Mail, Repeat } from "lucide-react";
-import { CALENDAR_EVENTS, AUDIT_LOG, TEMPLATES } from "../mock/mockData";
-import { useTasks, isDone, isOverdue, toLocalInput } from "./tarefas/context/TaskContext";
-import { genId, type AppSubtask } from "./tarefas/utils/subtaskTree";
+import { MapPin, Copy, Bell, Search, RefreshCw, CheckCircle2, Mail, Repeat, BookmarkPlus, Trash2, Plus, LocateFixed } from "lucide-react";
+import { Geolocation, type Position } from "@capacitor/geolocation";
+import { AUDIT_LOG } from "../mock/mockData";
+import { useTasks, isDone, isOverdue } from "./tarefas/context/TaskContext";
+import { TaskDetailModal } from "./tarefas";
+import { distanceM, fmtDist } from "../nativo/lembretesLocal";
+import {
+  isNative, loadCalConfig, saveCalConfig, requestCalendarAccess, listWritableCalendars, syncTasks, removeAllEvents,
+  type CalConfig,
+} from "../nativo/calendario";
 
-const freshCopy = (nodes: AppSubtask[]): AppSubtask[] =>
-  nodes.map(n => ({ ...n, id: genId(), completed: false, children: freshCopy(n.children) }));
+const card = "rounded-xl p-3";
+const cardStyle = { background: "var(--surface)", border: "1px solid var(--border)" };
+const rowStyle = { borderBottom: "1px solid var(--border)" };
+const smallBtn = "flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-lg flex-none";
+const smallBtnStyle = { background: "var(--sunken)", color: "var(--accent)", border: "1px solid var(--border)" };
 
-
-
-// ── GPS & Geofencing ──────────────────────────────────────────────
+// ── Lembretes por local (US06) ────────────────────────────────────
 export function GpsSection({ isDark }: { isDark: boolean }) {
-  const [simulating, setSimulating] = useState(false);
-  const [distance, setDistance] = useState(450);
-  const [notif, setNotif] = useState(false);
-  const [timerRef] = useState<{ id: ReturnType<typeof setInterval> | null }>({ id: null });
-  useEffect(() => () => { if (timerRef.id) clearInterval(timerRef.id); }, [timerRef]);
+  const { tasks } = useTasks();
+  const [pos, setPos] = useState<Position | null>(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const withLoc = tasks.filter(t => t.location && !isDone(t));
+  const open = tasks.find(t => t.id === openId);
 
-  const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
-  const text = isDark ? "text-slate-100" : "text-slate-900";
-  const sub = isDark ? "text-slate-400" : "text-slate-500";
+  const locate = async () => {
+    setBusy(true);
+    setError("");
+    try { setPos(await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 15000 })); }
+    catch { setError("Não consegui pegar sua localização. Ligue o GPS e permita o acesso à localização."); }
+    setBusy(false);
+  };
+  useEffect(() => { if (withLoc.length) locate(); }, []);
 
-  const simulate = () => {
-    if (simulating) {
-      setSimulating(false);
-      if (timerRef.id) clearInterval(timerRef.id);
-      setDistance(450);
-      setNotif(false);
+  return (
+    <div className="space-y-3">
+      <div className={card} style={cardStyle}>
+        <p className="text-[13px]" style={{ color: "var(--text)" }}>
+          Abra uma tarefa e, em <strong>Lembrete por local</strong>, marque o lugar onde ela deve ser feita.
+          Quando você chegar perto, o Ordena avisa com uma notificação.
+        </p>
+        <p className="text-[12px] mt-1.5" style={{ color: "var(--tertiary)" }}>
+          O aviso funciona enquanto o app está aberto ou em uso recente.
+        </p>
+      </div>
+
+      <div className={card} style={cardStyle}>
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-[13px] font-semibold" style={{ color: "var(--text)" }}>Tarefas com local</p>
+          {withLoc.length > 0 && (
+            <button onClick={locate} disabled={busy} className={`${smallBtn} disabled:opacity-50`} style={smallBtnStyle}>
+              <LocateFixed size={12} /> {busy ? "Localizando..." : "Atualizar"}
+            </button>
+          )}
+        </div>
+        {error && <p className="text-[12px] mb-1" style={{ color: "var(--critical)" }}>{error}</p>}
+        {withLoc.length === 0 && <p className="text-[12px] py-2" style={{ color: "var(--sub)" }}>Nenhuma tarefa aberta tem local marcado.</p>}
+        {withLoc.map(t => {
+          const loc = t.location!;
+          const d = pos ? distanceM(pos.coords, loc) : null;
+          const near = d !== null && d <= loc.radius;
+          return (
+            <button key={t.id} onClick={() => setOpenId(t.id)} className="w-full flex items-center gap-2 py-2.5 text-left last:border-0" style={rowStyle}>
+              <MapPin size={14} className="flex-none" style={{ color: near ? "var(--success)" : "var(--accent)" }} />
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium truncate" style={{ color: "var(--text)" }}>{loc.label}</p>
+                <p className="text-[11px] truncate" style={{ color: "var(--sub)" }}>{t.title}</p>
+              </div>
+              <span className="text-[11px] font-mono flex-none" style={{ color: near ? "var(--success)" : "var(--tertiary)" }}>
+                {d === null ? `${loc.radius} m` : near ? "Você está aqui" : fmtDist(d)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {open && <TaskDetailModal task={open} isDark={isDark} onClose={() => setOpenId(null)} />}
+    </div>
+  );
+}
+
+// ── Duplicação e modelos (US08) ───────────────────────────────────
+export function DupSection(_: { isDark: boolean }) {
+  const { tasks, templates, duplicateTask, saveTemplate, removeTemplate, createFromTemplate } = useTasks();
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const open = tasks.filter(t => !isDone(t));
+  const countSubs = (n: { children: unknown[] }[]): number => n.reduce((s, x) => s + 1 + countSubs(x.children as { children: unknown[] }[]), 0);
+
+  return (
+    <div className="space-y-3">
+      <div className={card} style={cardStyle}>
+        <p className="text-[13px] font-semibold mb-0.5" style={{ color: "var(--text)" }}>Meus modelos</p>
+        <p className="text-[12px] mb-1" style={{ color: "var(--tertiary)" }}>Use um modelo para criar a tarefa de novo, com as subtarefas, em um toque.</p>
+        {templates.length === 0 && (
+          <p className="text-[12px] py-2" style={{ color: "var(--sub)" }}>Nenhum modelo ainda. Salve uma tarefa como modelo na lista abaixo ou pelo detalhe da tarefa.</p>
+        )}
+        {templates.map(tpl => (
+          <div key={tpl.id} className="flex items-center gap-2 py-2.5 last:border-0" style={rowStyle}>
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-medium truncate" style={{ color: "var(--text)" }}>{tpl.name}</p>
+              <p className="text-[11px]" style={{ color: "var(--sub)" }}>
+                {tpl.data.project} · {countSubs(tpl.data.subtasks)} subtarefas{tpl.data.effort ? ` · ${tpl.data.effort}` : ""}
+              </p>
+            </div>
+            <button onClick={() => createFromTemplate(tpl.id)} className={smallBtn} style={{ background: "var(--accent)", color: "#fff" }}>
+              <Plus size={12} /> Usar
+            </button>
+            {confirmDel === tpl.id ? (
+              <button onClick={() => { removeTemplate(tpl.id); setConfirmDel(null); }} className="text-[11px] font-semibold px-1.5" style={{ color: "var(--critical)" }}>Excluir?</button>
+            ) : (
+              <button aria-label={`Excluir modelo ${tpl.name}`} onClick={() => setConfirmDel(tpl.id)} className="p-1.5" style={{ color: "var(--tertiary)" }}>
+                <Trash2 size={14} />
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className={card} style={cardStyle}>
+        <p className="text-[13px] font-semibold mb-1" style={{ color: "var(--text)" }}>Tarefas em aberto</p>
+        {open.length === 0 && <p className="text-[12px] py-2" style={{ color: "var(--sub)" }}>Nenhuma tarefa em aberto.</p>}
+        {open.map(task => {
+          const saved = templates.some(t => t.name === task.title);
+          return (
+            <div key={task.id} className="flex items-center gap-2 py-2.5 last:border-0" style={rowStyle}>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium truncate" style={{ color: "var(--text)" }}>{task.title}</p>
+                <p className="text-[11px]" style={{ color: "var(--sub)" }}>{countSubs(task.subtasks)} subtarefas{task.effort ? ` · ${task.effort}` : ""}</p>
+              </div>
+              <button onClick={() => duplicateTask(task.id)} className={smallBtn} style={smallBtnStyle}>
+                <Copy size={12} /> Duplicar
+              </button>
+              <button onClick={() => saveTemplate(task, task.title)} disabled={saved} aria-label="Salvar como modelo"
+                className={`${smallBtn} disabled:opacity-40`} style={smallBtnStyle}>
+                {saved ? <CheckCircle2 size={12} /> : <BookmarkPlus size={12} />} Modelo
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Calendário do aparelho / Google Calendar (US09) ───────────────
+export function CalSection(_: { isDark: boolean }) {
+  const { tasks } = useTasks();
+  const [cfg, setCfg] = useState<CalConfig>(loadCalConfig);
+  const [calendars, setCalendars] = useState<{ id: string; title: string | null; accountName: string | null }[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const update = (c: CalConfig) => { setCfg(c); saveCalConfig(c); };
+
+  const loadCalendars = async () => {
+    if (!(await requestCalendarAccess())) { setMsg("Permita o acesso ao calendário nas configurações do Android para sincronizar."); return false; }
+    setCalendars(await listWritableCalendars());
+    return true;
+  };
+  useEffect(() => { if (isNative && cfg.enabled) loadCalendars(); }, []);
+
+  const sync = async (c = cfg) => {
+    setBusy(true);
+    setMsg("");
+    try {
+      const r = await syncTasks(tasks, c.calendarId);
+      setCfg(loadCalConfig());
+      setMsg(`Pronto: ${r.created} criados, ${r.updated} atualizados, ${r.removed} removidos.`);
+    } catch {
+      setMsg("Não foi possível sincronizar. Confira a permissão de calendário.");
+    }
+    setBusy(false);
+  };
+
+  const toggle = async () => {
+    if (cfg.enabled) {
+      update({ ...cfg, enabled: false });
+      await removeAllEvents();
+      setMsg("Sincronização desligada. Os eventos criados pelo Ordena foram removidos do calendário.");
       return;
     }
-    setSimulating(true);
-    let d = 450;
-    timerRef.id = setInterval(() => {
-      d -= 25;
-      setDistance(d);
-      if (d <= 50) {
-        setNotif(true);
-        if (timerRef.id) clearInterval(timerRef.id);
-        setSimulating(false);
-      }
-    }, 300);
+    if (!(await loadCalendars())) return;
+    const next = { ...cfg, enabled: true };
+    update(next);
+    sync(next);
   };
 
-  const pct = Math.max(0, Math.min(100, ((450 - distance) / 450) * 100));
+  if (!isNative) {
+    return (
+      <div className={card} style={cardStyle}>
+        <p className="text-[13px] font-semibold mb-1" style={{ color: "var(--text)" }}>Calendário</p>
+        <p className="text-[12px]" style={{ color: "var(--sub)" }}>
+          A sincronização com o calendário funciona no app Android. Aqui no navegador, use “Adicionar ao calendário”
+          no detalhe da tarefa para baixar um arquivo .ics.
+        </p>
+      </div>
+    );
+  }
 
+  const lastSync = cfg.lastSync ? new Date(cfg.lastSync).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : null;
   return (
     <div className="space-y-3">
-      {/* Notification */}
-      {notif && (
-        <div className="bg-emerald-500/15 border border-emerald-500/30 rounded-xl p-3 flex items-start gap-2 animate-pulse">
-          <MapPin size={16} className="text-emerald-400 flex-none mt-0.5" />
-          <div className="flex-1">
-            <p className="text-xs font-semibold text-emerald-400">Alerta de Proximidade</p>
-            <p className="text-xs text-emerald-300 mt-0.5">Você está a 50m do Supermercado. Não se esqueça: <strong>"Comprar insumos para o laboratório"</strong></p>
-            <div className="flex gap-2 mt-2">
-              <button className="text-[10px] bg-emerald-500 text-white px-2 py-1 rounded-lg">Abrir Tarefa</button>
-              <button className="text-[10px] border border-emerald-500/40 text-emerald-400 px-2 py-1 rounded-lg">Dispensar</button>
-            </div>
+      <div className={card} style={cardStyle}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[13px] font-semibold" style={{ color: "var(--text)" }}>Sincronizar com o calendário</p>
+            <p className="text-[11px]" style={{ color: "var(--sub)" }}>{lastSync ? `Última sincronização: ${lastSync}` : "Tarefas em aberto viram eventos no prazo"}</p>
           </div>
-          <button onClick={() => setNotif(false)}><X size={14} className="text-slate-400" /></button>
-        </div>
-      )}
-
-      {/* Mini-map */}
-      <div className={`${card} border rounded-xl overflow-hidden`}>
-        <div className="relative h-40 bg-gradient-to-br from-slate-700 to-slate-800">
-          {/* Grid lines */}
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="absolute top-0 bottom-0 border-l border-slate-600/30" style={{ left: `${i * 20}%` }} />
-          ))}
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="absolute left-0 right-0 border-t border-slate-600/30" style={{ top: `${i * 25}%` }} />
-          ))}
-          {/* Roads */}
-          <div className="absolute top-1/2 left-0 right-0 h-2 bg-slate-600/50 -translate-y-1/2" />
-          <div className="absolute left-1/2 top-0 bottom-0 w-2 bg-slate-600/50 -translate-x-1/2" />
-          {/* Geofence radius */}
-          <div
-            className="absolute rounded-full border-2 border-emerald-400/50 bg-emerald-400/10 transition-all duration-300"
-            style={{ width: 80, height: 80, top: "50%", left: "70%", transform: "translate(-50%,-50%)" }}
-          />
-          {/* Destination */}
-          <div className="absolute" style={{ top: "45%", left: "67%", transform: "translate(-50%,-50%)" }}>
-            <div className="w-4 h-4 rounded-full bg-emerald-400 border-2 border-white shadow-lg" />
-            <span className="text-[10px] text-emerald-300 font-medium whitespace-nowrap">Supermercado</span>
-          </div>
-          {/* User dot */}
-          <div
-            className="absolute transition-all duration-300"
-            style={{ top: "50%", left: `${10 + pct * 0.57}%`, transform: "translate(-50%,-50%)" }}
-          >
-            <div className="w-5 h-5 rounded-full bg-indigo-500 border-2 border-white shadow-xl animate-pulse" />
-            <span className="text-[10px] text-indigo-300 font-medium">Você</span>
-          </div>
-          {/* Distance badge */}
-          <div className="absolute bottom-2 right-2 bg-black/50 backdrop-blur-sm rounded-lg px-2 py-1">
-            <span className="text-xs text-white font-mono">{Math.max(0, distance)}m restantes</span>
-          </div>
-        </div>
-        <div className="px-3 py-2.5">
-          <div className="flex items-center justify-between mb-1.5">
-            <p className={`text-xs font-medium ${text}`}>Raio de Geofencing: 200m</p>
-            <span className="text-[10px] font-mono text-emerald-400">{Math.round(pct)}% percorrido</span>
-          </div>
-          <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden mb-2.5">
-            <div className="h-full bg-[#4F6BED] rounded-full transition-all duration-300"
-              style={{ width: `${pct}%` }} />
-          </div>
-          <button
-            onClick={simulate}
-            className={`w-full py-2 rounded-xl text-xs font-semibold transition-all ${
-              simulating
-                ? "bg-rose-500/20 border border-rose-500/30 text-rose-400"
-                : "bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/30"
-            }`}
-          >
-            {simulating ? "⏹ Parar Simulação" : "▶ Simular Deslocamento para o Supermercado"}
+          <button role="switch" aria-checked={cfg.enabled} aria-label="Sincronizar com o calendário" onClick={toggle}
+            className="relative w-11 h-6 rounded-full transition-colors flex-none" style={{ background: cfg.enabled ? "var(--success)" : "var(--border)" }}>
+            <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${cfg.enabled ? "translate-x-5" : "translate-x-0.5"}`} />
           </button>
         </div>
-      </div>
 
-      {/* Registered locations */}
-      <div className={`${card} border rounded-xl p-3`}>
-        <p className={`text-xs font-semibold ${isDark ? "text-slate-300" : "text-slate-700"} mb-2`}>Locais Cadastrados</p>
-        {[
-          { name: "Supermercado Extra", task: "Comprar insumos para o laboratório", dist: "0.45km" },
-          { name: "Cartório 3º Ofício", task: "Reconhecer firma do contrato", dist: "1.2km" },
-          { name: "Escritório TI", task: "Corrigir vazamento de memória no build", dist: "0.8km" },
-        ].map((loc, i) => (
-          <div key={i} className="flex items-center gap-2 py-2 border-b border-slate-700/30 last:border-0">
-            <MapPin size={12} className="text-emerald-400 flex-none" />
-            <div className="flex-1 min-w-0">
-              <p className={`text-xs font-medium ${text} truncate`}>{loc.name}</p>
-              <p className={`text-[10px] ${sub} truncate`}>→ {loc.task}</p>
-            </div>
-            <span className="text-[10px] font-mono text-slate-500">{loc.dist}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── Duplication & Templates ───────────────────────────────────────
-export function DupSection({ isDark }: { isDark: boolean }) {
-  const [duplicated, setDuplicated] = useState<string | null>(null);
-  const { tasks, createTask } = useTasks();
-  const duplicate = (id: string) => {
-    const t = tasks.find(x => x.id === id)!;
-    const { id: _id, updatedAt: _u, syncPending: _s, ...data } = t;
-    createTask({
-      ...data,
-      title: `${t.title} (cópia)`,
-      status: "Pendente",
-      dueDate: toLocalInput(new Date(Date.now() + 7 * 864e5)),
-      subtasks: freshCopy(t.subtasks),
-    });
-    setDuplicated(t.title);
-  };
-  const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
-  const text = isDark ? "text-slate-100" : "text-slate-900";
-  const sub = isDark ? "text-slate-400" : "text-slate-500";
-
-  return (
-    <div className="space-y-3">
-      {duplicated && (
-        <div className="bg-emerald-500/15 border border-emerald-500/30 rounded-xl p-3 flex items-center gap-2">
-          <CheckCircle2 size={14} className="text-emerald-400" />
-          <p className="text-xs text-emerald-300">Cópia de "{duplicated}" criada em Tarefas, com prazo daqui a 7 dias.</p>
-        </div>
-      )}
-      <div className={`${card} border rounded-xl p-3`}>
-        <p className={`text-xs font-semibold ${text} mb-2`}>Duplicar Tarefa com Subtarefas</p>
-        {tasks.filter(t => !isDone(t)).map(task => (
-          <div key={task.id} className="flex items-center gap-2 py-2 border-b border-slate-700/30 last:border-0">
-            <div className="flex-1 min-w-0">
-              <p className={`text-xs font-medium ${text} truncate`}>{task.title}</p>
-              <p className={`text-[10px] ${sub}`}>{task.subtasks.length} subtarefas • {task.effort}</p>
-            </div>
-            <button
-              onClick={() => duplicate(task.id)}
-              className="flex items-center gap-1 text-[10px] bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 px-2 py-1 rounded-lg hover:bg-indigo-500/30 transition-colors flex-none"
-            >
-              <Copy size={10} /> Duplicar
+        {cfg.enabled && (
+          <>
+            <label className="block text-[11px] mt-3 mb-1" style={{ color: "var(--sub)" }}>Calendário de destino</label>
+            <select className="w-full text-[13px] px-3 py-2 rounded-lg outline-none" style={{ background: "var(--sunken)", border: "1px solid var(--border)", color: "var(--text)" }}
+              value={cfg.calendarId ?? ""} onChange={e => update({ ...cfg, calendarId: e.target.value || undefined })}>
+              <option value="">Calendário padrão</option>
+              {calendars.map(c => <option key={c.id} value={c.id}>{c.title ?? "Sem nome"}{c.accountName ? ` (${c.accountName})` : ""}</option>)}
+            </select>
+            <p className="text-[11px] mt-1" style={{ color: "var(--tertiary)" }}>
+              Escolha um calendário da sua conta Google para os eventos aparecerem também no Google Calendar.
+            </p>
+            <button onClick={() => sync()} disabled={busy}
+              className="w-full mt-3 flex items-center justify-center gap-2 py-2 rounded-xl text-[12px] font-medium disabled:opacity-50" style={smallBtnStyle}>
+              <RefreshCw size={12} className={busy ? "animate-spin" : ""} />
+              {busy ? "Sincronizando..." : "Sincronizar agora"}
             </button>
-          </div>
-        ))}
+          </>
+        )}
+        {msg && <p className="text-[12px] mt-2" style={{ color: "var(--sub)" }}>{msg}</p>}
       </div>
-
-      <div className={`${card} border rounded-xl p-3`}>
-        <p className={`text-xs font-semibold ${text} mb-2`}>Templates de Rotina</p>
-        {TEMPLATES.map(tpl => (
-          <div key={tpl.id} className="flex items-center gap-3 py-2 border-b border-slate-700/30 last:border-0">
-            <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center flex-none">
-              <Copy size={13} className="text-indigo-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className={`text-xs font-medium ${text}`}>{tpl.name}</p>
-              <p className={`text-[10px] ${sub}`}>{tpl.description}</p>
-              <p className="text-[10px] text-indigo-400">{tpl.tasks} tarefas pré-configuradas</p>
-            </div>
-            <button className="text-[10px] bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 px-2 py-1 rounded-lg flex-none">
-              Usar
-            </button>
-          </div>
-        ))}
-        <button className="w-full mt-2 py-2 rounded-lg text-xs text-slate-400 border border-dashed border-slate-600 flex items-center justify-center gap-1.5 hover:border-indigo-500 hover:text-indigo-400 transition-colors">
-          <Copy size={11} /> Salvar Seleção como Template
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ── Calendar ──────────────────────────────────────────────────────
-export function CalSection({ isDark }: { isDark: boolean }) {
-  const [syncing, setSyncing] = useState(false);
-  const [syncActive, setSyncActive] = useState(true);
-  const [lastSync] = useState("12/09/2025 às 08:34");
-  const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
-  const text = isDark ? "text-slate-100" : "text-slate-900";
-  const sub = isDark ? "text-slate-400" : "text-slate-500";
-
-  const forceSync = () => {
-    setSyncing(true);
-    setTimeout(() => setSyncing(false), 2000);
-  };
-
-  return (
-    <div className="space-y-3">
-      <div className={`${card} border rounded-xl p-3`}>
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <p className={`text-xs font-semibold ${text}`}>Google Calendar</p>
-            <p className={`text-[10px] ${sub}`}>Último sync: {lastSync}</p>
-          </div>
-          <button
-            onClick={() => setSyncActive(s => !s)}
-            className={`relative w-10 h-5 rounded-full transition-colors ${syncActive ? "bg-emerald-500" : "bg-slate-600"}`}
-          >
-            <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${syncActive ? "translate-x-5" : "translate-x-0.5"}`} />
-          </button>
-        </div>
-        <button
-          onClick={forceSync}
-          className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-400 text-xs font-medium hover:bg-blue-500/30 transition-colors"
-        >
-          <RefreshCw size={12} className={syncing ? "animate-spin" : ""} />
-          {syncing ? "Sincronizando..." : "Forçar Sincronização Agora"}
-        </button>
-      </div>
-
-      <div className={`${card} border rounded-xl p-3`}>
-        <p className={`text-xs font-semibold ${text} mb-2`}>Próximos Eventos Espelhados</p>
-        {CALENDAR_EVENTS.map(ev => (
-          <div key={ev.id} className="flex items-center gap-3 py-2 border-b border-slate-700/30 last:border-0">
-            <div className={`w-2 h-8 rounded-full flex-none ${ev.synced ? "bg-blue-400" : "bg-slate-600"}`} />
-            <div className="flex-1 min-w-0">
-              <p className={`text-xs font-medium ${text} truncate`}>{ev.title}</p>
-              <p className={`text-[10px] ${sub}`}>{ev.date} • {ev.time}</p>
-            </div>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-none ${ev.synced ? "bg-blue-500/20 text-blue-400" : "bg-slate-600/50 text-slate-400"}`}>
-              {ev.synced ? "Sync" : "Pendente"}
-            </span>
-          </div>
-        ))}
+      <div className={card} style={cardStyle}>
+        <p className="text-[12px]" style={{ color: "var(--sub)" }}>
+          Com a sincronização ligada, criar, editar, concluir ou excluir uma tarefa atualiza o evento sozinho.
+          Cada evento termina no prazo e dura o esforço estimado, com aviso 30 minutos antes.
+        </p>
       </div>
     </div>
   );

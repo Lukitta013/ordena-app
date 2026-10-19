@@ -349,14 +349,6 @@ TASKS.forEach(t => {
   );
 });
 
-export const CALENDAR_EVENTS: CalendarEvent[] = [
-  { id: "ce1", title: "Revisar plano da semana", date: "2025-09-13", time: "09:00", synced: true, taskId: "t1" },
-  { id: "ce2", title: "Consulta médica", date: "2025-09-14", time: "14:00", synced: true },
-  { id: "ce3", title: "Entrega do trabalho da faculdade", date: "2025-09-17", time: "10:00", synced: false },
-  { id: "ce4", title: "Academia", date: "2025-09-19", time: "16:00", synced: true },
-  { id: "ce5", title: "Pagar contas do mês", date: "2025-09-15", time: "11:00", synced: false },
-];
-
 export const AUDIT_LOG: AuditEntry[] = [
   { id: "al1", action: "Criou tarefa", user: "Você", timestamp: "2025-09-10 08:00", detail: "Criou 'Corrigir vazamento de memória no build'" },
   { id: "al2", action: "Alterou status", user: "Você", timestamp: "2025-09-10 10:15", detail: "t2: Pendente → Em Andamento" },
@@ -419,8 +411,3 @@ export const GANTT_TASKS = [
   { id: "g6", title: "Entregar o TCC", start: 11, duration: 2, color: "#F43F5E", deps: ["g5"] },
 ];
 
-export const TEMPLATES = [
-  { id: "tpl1", name: "Rotina da Manhã", tasks: 5, description: "Checklist para começar o dia" },
-  { id: "tpl2", name: "Fechamento Mensal", tasks: 5, description: "Contas, gastos e metas do mês" },
-  { id: "tpl3", name: "Semana de Provas", tasks: 6, description: "Revisões e entregas da faculdade" },
-];

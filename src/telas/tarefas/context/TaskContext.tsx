@@ -36,8 +36,22 @@ export type AppTask = {
   quadrant: Quadrant;
   subtasks: AppSubtask[];
   tags?: string[];
+  dependsOn?: string[];
+  notes?: TaskNote[];
+  attachments?: Attachment[];
+  location?: TaskLocation;
   updatedAt: string;
   syncPending: boolean;
+};
+
+export type TaskNote = { id: string; text: string; at: string };
+// O conteúdo do arquivo fica no IndexedDB (utils/anexos.ts); aqui só os metadados
+export type Attachment = { id: string; name: string; type: string; size: number; at: string };
+export type TaskLocation = { label: string; lat: number; lng: number; radius: number };
+export type Template = {
+  id: string;
+  name: string;
+  data: Pick<AppTask, "title" | "description" | "project" | "priority" | "effort" | "subtasks" | "tags" | "notes" | "location">;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -104,6 +118,27 @@ export function deriveQuadrant(priority: Priority, dueDate: string): Quadrant {
 }
 
 export const isDone = (t: AppTask) => t.status === "Concluída";
+
+// Dependências ainda abertas; ids de tarefas excluídas são ignorados (assim o "Desfazer" não perde nada)
+export const blockersOf = (t: AppTask, all: AppTask[]) =>
+  all.filter(x => t.dependsOn?.includes(x.id) && !isDone(x));
+
+// true se "depId" já depende (direta ou indiretamente) de "taskId": a nova dependência fecharia um ciclo
+export function wouldCycle(all: AppTask[], taskId: string, depId: string): boolean {
+  const seen = new Set<string>();
+  const stack = [depId];
+  while (stack.length) {
+    const id = stack.pop()!;
+    if (id === taskId) return true;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    stack.push(...(all.find(x => x.id === id)?.dependsOn ?? []));
+  }
+  return false;
+}
+
+export const freshCopy = (nodes: AppSubtask[]): AppSubtask[] =>
+  nodes.map(n => ({ ...n, id: genId(), completed: false, children: freshCopy(n.children) }));
 export const isOverdue = (t: AppTask) => !isDone(t) && new Date(t.dueDate).getTime() < Date.now();
 export const sameDay = (iso: string, d: Date) => new Date(iso).toDateString() === d.toDateString();
 
@@ -328,6 +363,15 @@ type TaskCtx = {
   statuses: StatusDef[];
   saveStatus: (oldName: string | null, st: StatusDef) => void;
   removeStatus: (name: string) => void;
+  notify: (text: string) => void;
+  duplicateTask: (id: string) => void;
+  templates: Template[];
+  saveTemplate: (task: AppTask, name: string) => void;
+  removeTemplate: (id: string) => void;
+  createFromTemplate: (id: string) => void;
+  // Tarefa a abrir na tela Tarefas (toque numa notificação, por exemplo)
+  focusTaskId: string | null;
+  setFocusTaskId: (id: string | null) => void;
 };
 
 const Ctx = createContext<TaskCtx | null>(null);
@@ -384,6 +428,17 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     if (toastTimer.current) clearTimeout(toastTimer.current);
   }, []);
 
+  const [templates, setTemplates] = useState<Template[]>(() => load("ordena-modelos", []));
+  useEffect(() => { localStorage.setItem("ordena-modelos", JSON.stringify(templates)); }, [templates]);
+  const [focusTaskId, setFocusTaskId] = useState<string | null>(null);
+
+  const saveTemplate = useCallback((t: AppTask, name: string) => {
+    const { title, description, project, priority, effort, subtasks, tags, notes, location } = t;
+    setTemplates(prev => [...prev, { id: genId(), name, data: { title, description, project, priority, effort, subtasks, tags, notes, location } }]);
+    showToast("✓ Modelo salvo");
+  }, [showToast]);
+  const removeTemplate = useCallback((id: string) => setTemplates(prev => prev.filter(x => x.id !== id)), []);
+
   const markSync = (id: string) =>
     setTasks(prev => prev.map(t => t.id === id ? { ...t, syncPending: true, updatedAt: new Date().toISOString() } : t));
 
@@ -405,6 +460,31 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     setTasks(prev => prev.filter(t => t.id !== id));
     showToast("✓ Tarefa excluída", task);
   }, [tasks, showToast]);
+
+  // Cópias não levam anexos (o arquivo é do original) nem dependências
+  const fromData = useCallback((data: Template["data"], title: string) => {
+    const dueDate = toLocalInput(new Date(Date.now() + 7 * 864e5));
+    const task: AppTask = {
+      ...data, title, id: `task-${genId()}`, status: "Pendente", dueDate, attachments: undefined, dependsOn: undefined,
+      quadrant: deriveQuadrant(data.priority, dueDate), subtasks: freshCopy(data.subtasks),
+      updatedAt: new Date().toISOString(), syncPending: true,
+    };
+    setTasks(prev => [task, ...prev]);
+  }, []);
+
+  const duplicateTask = useCallback((id: string) => {
+    const t = tasks.find(x => x.id === id);
+    if (!t) return;
+    fromData(t, `${t.title} (cópia)`);
+    showToast("✓ Cópia criada com prazo daqui a 7 dias");
+  }, [tasks, fromData, showToast]);
+
+  const createFromTemplate = useCallback((id: string) => {
+    const tpl = templates.find(x => x.id === id);
+    if (!tpl) return;
+    fromData(tpl.data, tpl.data.title);
+    showToast(`✓ Tarefa criada do modelo "${tpl.name}"`);
+  }, [templates, fromData, showToast]);
 
   const restoreTask = useCallback((task: AppTask) => {
     setTasks(prev => [task, ...prev.filter(t => t.id !== task.id)]);
@@ -452,6 +532,9 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       dismissToast,
       categories, saveCategory, removeCategory,
       statuses, saveStatus, removeStatus,
+      notify: showToast, duplicateTask,
+      templates, saveTemplate, removeTemplate, createFromTemplate,
+      focusTaskId, setFocusTaskId,
     }}>
       {children}
     </Ctx.Provider>
