@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -40,6 +41,8 @@ export type AppTask = {
   notes?: TaskNote[];
   attachments?: Attachment[];
   location?: TaskLocation;
+  recurrence?: Recurrence;
+  archived?: boolean;
   updatedAt: string;
   syncPending: boolean;
 };
@@ -47,11 +50,14 @@ export type AppTask = {
 export type TaskNote = { id: string; text: string; at: string };
 // O conteúdo do arquivo fica no IndexedDB (utils/anexos.ts); aqui só os metadados
 export type Attachment = { id: string; name: string; type: string; size: number; at: string };
+// left: quantas repetições ainda faltam (sem valor = repete para sempre)
+export type Recurrence = { freq: "Diária" | "Semanal" | "Mensal"; left?: number };
+export type Activity = { id: string; at: string; action: string; title: string };
 export type TaskLocation = { label: string; lat: number; lng: number; radius: number };
 export type Template = {
   id: string;
   name: string;
-  data: Pick<AppTask, "title" | "description" | "project" | "priority" | "effort" | "subtasks" | "tags" | "notes" | "location">;
+  data: Pick<AppTask, "title" | "description" | "project" | "priority" | "effort" | "subtasks" | "tags" | "notes" | "location" | "recurrence">;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -135,6 +141,17 @@ export function wouldCycle(all: AppTask[], taskId: string, depId: string): boole
     stack.push(...(all.find(x => x.id === id)?.dependsOn ?? []));
   }
   return false;
+}
+
+// Próximo prazo de uma tarefa recorrente: avança a partir do prazo atual até cair no futuro
+export function nextDue(dueDate: string, freq: Recurrence["freq"]): string {
+  const d = new Date(dueDate);
+  do {
+    if (freq === "Diária") d.setDate(d.getDate() + 1);
+    else if (freq === "Semanal") d.setDate(d.getDate() + 7);
+    else d.setMonth(d.getMonth() + 1);
+  } while (d.getTime() <= Date.now());
+  return toLocalInput(d);
 }
 
 export const freshCopy = (nodes: AppSubtask[]): AppSubtask[] =>
@@ -346,7 +363,10 @@ const SEED: AppTask[] = [
 type ToastMsg = { id: string; text: string; undoTask?: AppTask };
 
 type TaskCtx = {
+  // Só as tarefas ativas; as arquivadas ficam em archivedTasks
   tasks: AppTask[];
+  archivedTasks: AppTask[];
+  history: Activity[];
   toast: ToastMsg | null;
   createTask: (data: Omit<AppTask, "id" | "updatedAt" | "syncPending">) => string;
   updateTask: (id: string, patch: Partial<AppTask>) => void;
@@ -383,10 +403,20 @@ export function useTasks() {
 }
 
 export function TaskProvider({ children }: { children: ReactNode }) {
-  const [tasks, setTasks] = useState<AppTask[]>(() => {
+  const [allTasks, setTasks] = useState<AppTask[]>(() => {
     try { return JSON.parse(localStorage.getItem("ordena-tasks") ?? "") as AppTask[]; } catch { return SEED; }
   });
-  useEffect(() => { localStorage.setItem("ordena-tasks", JSON.stringify(tasks)); }, [tasks]);
+  useEffect(() => { localStorage.setItem("ordena-tasks", JSON.stringify(allTasks)); }, [allTasks]);
+  const tasks = useMemo(() => allTasks.filter(t => !t.archived), [allTasks]);
+  const archivedTasks = useMemo(() => allTasks.filter(t => t.archived), [allTasks]);
+  const allRef = useRef(allTasks);
+  allRef.current = allTasks;
+
+  // Histórico de atividades (US12): as 200 mais recentes ficam salvas no aparelho
+  const [history, setHistory] = useState<Activity[]>(() => load("ordena-historico", []));
+  useEffect(() => { localStorage.setItem("ordena-historico", JSON.stringify(history)); }, [history]);
+  const log = useCallback((action: string, title: string) =>
+    setHistory(prev => [{ id: genId(), at: new Date().toISOString(), action, title }, ...prev].slice(0, 200)), []);
   const [toast, setToast] = useState<ToastMsg | null>(null);
   const [categories, setCategories] = useState<Category[]>(() => load("ordena-categorias", DEFAULT_CATEGORIES));
   const [statuses, setStatuses] = useState<StatusDef[]>(() => load("ordena-status", DEFAULT_STATUSES));
@@ -434,7 +464,8 @@ export function TaskProvider({ children }: { children: ReactNode }) {
 
   const saveTemplate = useCallback((t: AppTask, name: string) => {
     const { title, description, project, priority, effort, subtasks, tags, notes, location } = t;
-    setTemplates(prev => [...prev, { id: genId(), name, data: { title, description, project, priority, effort, subtasks, tags, notes, location } }]);
+    const { recurrence } = t;
+    setTemplates(prev => [...prev, { id: genId(), name, data: { title, description, project, priority, effort, subtasks, tags, notes, location, recurrence } }]);
     showToast("✓ Modelo salvo");
   }, [showToast]);
   const removeTemplate = useCallback((id: string) => setTemplates(prev => prev.filter(x => x.id !== id)), []);
@@ -447,19 +478,47 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     const task: AppTask = { ...data, id, updatedAt: new Date().toISOString(), syncPending: true };
     setTasks(prev => [task, ...prev]);
     showToast("✓ Tarefa criada");
+    log("Criou", task.title);
     return id;
-  }, [showToast]);
+  }, [showToast, log]);
 
   const updateTask = useCallback((id: string, patch: Partial<AppTask>) => {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, ...patch, syncPending: true, updatedAt: new Date().toISOString() } : t));
-    showToast("✓ Alterações salvas");
-  }, [showToast]);
+    const old = allRef.current.find(t => t.id === id);
+    if (!old) return;
+    const now = new Date().toISOString();
+    const concluding = patch.status === "Concluída" && !isDone(old);
+    // Tarefa recorrente (US13): concluir cria a próxima ocorrência, sem anexos nem dependências
+    const rec = old.recurrence;
+    let next: AppTask | null = null;
+    if (concluding && rec && (rec.left ?? 1) > 0) {
+      const dueDate = nextDue(old.dueDate, rec.freq);
+      next = {
+        ...old, id: `task-${genId()}`, status: "Pendente", dueDate, quadrant: deriveQuadrant(old.priority, dueDate),
+        subtasks: freshCopy(old.subtasks), attachments: undefined, dependsOn: undefined,
+        recurrence: rec.left === undefined ? rec : { ...rec, left: rec.left - 1 },
+        updatedAt: now, syncPending: true,
+      };
+    }
+    setTasks(prev => [...(next ? [next] : []), ...prev.map(t => t.id === id ? { ...t, ...patch, syncPending: true, updatedAt: now } : t)]);
+
+    const title = patch.title ?? old.title;
+    if (concluding) log("Concluiu", title);
+    else if (patch.status && patch.status !== old.status && isDone(old)) log("Reabriu", title);
+    else if (patch.archived !== undefined && patch.archived !== !!old.archived) log(patch.archived ? "Arquivou" : "Desarquivou", title);
+    else log("Editou", title);
+    if (next) {
+      log("Repetiu", next.title);
+      showToast(`✓ Concluída. Próxima em ${new Date(next.dueDate).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}`);
+    } else if (patch.archived !== undefined) showToast(patch.archived ? "✓ Tarefa arquivada" : "✓ Tarefa de volta à lista");
+    else showToast("✓ Alterações salvas");
+  }, [showToast, log]);
 
   const deleteTask = useCallback((id: string) => {
-    const task = tasks.find(t => t.id === id);
+    const task = allRef.current.find(t => t.id === id);
     setTasks(prev => prev.filter(t => t.id !== id));
+    if (task) log("Excluiu", task.title);
     showToast("✓ Tarefa excluída", task);
-  }, [tasks, showToast]);
+  }, [showToast, log]);
 
   // Cópias não levam anexos (o arquivo é do original) nem dependências
   const fromData = useCallback((data: Template["data"], title: string) => {
@@ -476,21 +535,24 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     const t = tasks.find(x => x.id === id);
     if (!t) return;
     fromData(t, `${t.title} (cópia)`);
+    log("Duplicou", t.title);
     showToast("✓ Cópia criada com prazo daqui a 7 dias");
-  }, [tasks, fromData, showToast]);
+  }, [tasks, fromData, showToast, log]);
 
   const createFromTemplate = useCallback((id: string) => {
     const tpl = templates.find(x => x.id === id);
     if (!tpl) return;
     fromData(tpl.data, tpl.data.title);
+    log("Criou do modelo", tpl.data.title);
     showToast(`✓ Tarefa criada do modelo "${tpl.name}"`);
-  }, [templates, fromData, showToast]);
+  }, [templates, fromData, showToast, log]);
 
   const restoreTask = useCallback((task: AppTask) => {
     setTasks(prev => [task, ...prev.filter(t => t.id !== task.id)]);
     dismissToast();
     showToast("✓ Tarefa restaurada");
-  }, [showToast, dismissToast]);
+    log("Restaurou", task.title);
+  }, [showToast, dismissToast, log]);
 
   const withSubtrees = useCallback((
     taskId: string,
@@ -526,7 +588,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider value={{
-      tasks, toast,
+      tasks, archivedTasks, history, toast,
       createTask, updateTask, deleteTask, restoreTask,
       addSubtaskFn, updateSubtaskFn, removeSubtaskFn, toggleSubtaskFn,
       dismissToast,

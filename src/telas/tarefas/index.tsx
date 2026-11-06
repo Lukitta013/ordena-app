@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Plus, Search, X, ChevronRight, ChevronDown, Calendar, Filter,
   FileText, Pencil, Trash2, Copy, BookmarkPlus, Lock, Paperclip, MapPin, StickyNote,
-  CheckCircle2, Circle, Clock,
+  CheckCircle2, Circle, Clock, Repeat, Archive,
   GraduationCap, Briefcase, Wallet, HeartPulse, User, Gamepad2, Wrench, FolderKanban,
   type LucideIcon,
 } from "lucide-react";
@@ -13,7 +13,9 @@ import {
 import { countLeaves, type AppSubtask } from "./utils/subtaskTree";
 import {
   DependenciesSection, BlockedNotice, LocationSection, CalendarButton, NotesSection, AttachmentsSection, DoneIcon,
+  RecurrenceSection,
 } from "./extras";
+import { fuzzyMatch } from "./utils/busca";
 
 type Theme = "dark" | "light";
 
@@ -417,6 +419,7 @@ export function TaskCard({
             </span>
           )}
           {blocked && <span className="text-[11px] font-medium" style={{ color: "var(--warning)" }}>Bloqueada</span>}
+          {task.recurrence && <Repeat size={11} className={isDark ? "text-[#9AA0AC]" : "text-slate-400"} aria-label={`Repete: ${task.recurrence.freq}`} />}
           {task.location && <MapPin size={11} className={isDark ? "text-[#9AA0AC]" : "text-slate-400"} aria-label="Tem lembrete por local" />}
           {!!task.notes?.length && <StickyNote size={11} className={isDark ? "text-[#9AA0AC]" : "text-slate-400"} aria-label="Tem anotações" />}
           {!!task.attachments?.length && (
@@ -770,6 +773,9 @@ export function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDa
                   onClick={() => saveTemplate(task, task.title)} className={`${iconBtn} disabled:opacity-30`}>
                   <BookmarkPlus size={16} />
                 </button>
+                <button title="Arquivar" aria-label="Arquivar tarefa" onClick={() => { updateTask(task.id, { archived: true }); onClose(); }} className={iconBtn}>
+                  <Archive size={16} />
+                </button>
               </>
             )}
             <button title="Editar" aria-label="Editar tarefa" onClick={() => setIsEditing(e => !e)}
@@ -905,6 +911,7 @@ export function TaskDetailModal({ task, isDark, onClose }: { task: AppTask; isDa
 
           {!isEditing && (
             <>
+              <RecurrenceSection task={task} />
               <DependenciesSection task={task} />
               <NotesSection task={task} />
               <AttachmentsSection task={task} />
@@ -1017,7 +1024,7 @@ function HomeScreen({ theme }: { theme: Theme }) {
   }, [tasks]);
 
   const filtered = tasks.filter(t => {
-    if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search && !fuzzyMatch(search, [t.title, t.description, ...(t.tags ?? [])].join(" "))) return false;
     if (activeQ !== "ALL" && t.quadrant !== activeQ) return false;
     if (filterProject !== "Todos" && t.project !== filterProject) return false;
     if (filterPriority !== "Todas" && t.priority !== filterPriority) return false;

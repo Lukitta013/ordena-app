@@ -28,14 +28,6 @@ export interface Comment {
   attachment?: Attachment;
 }
 
-export interface AuditEntry {
-  id: string;
-  action: string;
-  user: string;
-  timestamp: string;
-  detail: string;
-}
-
 export interface Task {
   id: string;
   title: string;
@@ -348,15 +340,6 @@ TASKS.forEach(t => {
     (t.subtasks.length * 1.5 + t.dependencies.length * 2.0 + t.attachments.length * 0.5 + t.comments.length * 0.3).toFixed(1)
   );
 });
-
-export const AUDIT_LOG: AuditEntry[] = [
-  { id: "al1", action: "Criou tarefa", user: "Você", timestamp: "2025-09-10 08:00", detail: "Criou 'Corrigir vazamento de memória no build'" },
-  { id: "al2", action: "Alterou status", user: "Você", timestamp: "2025-09-10 10:15", detail: "t2: Pendente → Em Andamento" },
-  { id: "al3", action: "Comentou", user: "Você", timestamp: "2025-09-10 16:45", detail: "Adicionou comentário em 'Refatorar camada MinIO'" },
-  { id: "al4", action: "Anexou arquivo", user: "Você", timestamp: "2025-09-11 09:00", detail: "coverage_report.png → Testes E2E" },
-  { id: "al5", action: "Bloqueou tarefa", user: "Sistema", timestamp: "2025-09-11 11:30", detail: "Deploy bloqueado: Testes E2E pendentes" },
-  { id: "al6", action: "Marcou subtarefa", user: "Você", timestamp: "2025-09-11 13:00", detail: "✓ Configurar índices compostos no SQLite" },
-];
 
 export const JSON_RULES: JsonRule[] = [
   {

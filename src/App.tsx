@@ -10,6 +10,7 @@ import {
 import AuthFlow from "./telas/login";
 import { useLocationReminders } from "./nativo/lembretesLocal";
 import { useCalendarAutoSync } from "./nativo/calendario";
+import { useDeadlineAlerts } from "./nativo/alertasPrazo";
 import {
   GpsSection, DupSection, CalSection,
   AlertsSection, SearchSection, RecurSection,
@@ -809,6 +810,7 @@ function NativeServices({ onTab }: { onTab: () => void }) {
   const openTask = useCallback((id: string) => { onTab(); setFocusTaskId(id); }, [onTab, setFocusTaskId]);
   useLocationReminders(openTask);
   useCalendarAutoSync();
+  useDeadlineAlerts();
   return null;
 }
 

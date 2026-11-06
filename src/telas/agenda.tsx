@@ -1,13 +1,21 @@
 import { useState, useEffect } from "react";
-import { MapPin, Copy, Bell, Search, RefreshCw, CheckCircle2, Mail, Repeat, BookmarkPlus, Trash2, Plus, LocateFixed } from "lucide-react";
+import {
+  MapPin, Copy, Bell, Search, RefreshCw, CheckCircle2, Mail, Repeat, BookmarkPlus, Trash2, Plus, LocateFixed,
+  Archive, ArchiveRestore, History, Download,
+} from "lucide-react";
 import { Geolocation, type Position } from "@capacitor/geolocation";
-import { AUDIT_LOG } from "../mock/mockData";
-import { useTasks, isDone, isOverdue } from "./tarefas/context/TaskContext";
+import { useTasks, isDone, deriveQuadrant, toLocalInput, FALLBACK_CATEGORY } from "./tarefas/context/TaskContext";
+import { fuzzyMatch } from "./tarefas/utils/busca";
+import { parseEmail } from "./tarefas/utils/email";
+import {
+  loadAlertConfig, saveAlertConfig, rescheduleAlerts, requestNotificationAccess, sendSummaryNow, summaryText, STEPS,
+  type AlertConfig,
+} from "../nativo/alertasPrazo";
 import { TaskDetailModal } from "./tarefas";
 import { distanceM, fmtDist } from "../nativo/lembretesLocal";
 import {
   isNative, loadCalConfig, saveCalConfig, requestCalendarAccess, listWritableCalendars, syncTasks, removeAllEvents,
-  type CalConfig,
+  listImportableEvents, markImported, type CalConfig, type CalEvent,
 } from "../nativo/calendario";
 
 const card = "rounded-xl p-3";
@@ -239,6 +247,64 @@ export function CalSection(_: { isDark: boolean }) {
           Cada evento termina no prazo e dura o esforço estimado, com aviso 30 minutos antes.
         </p>
       </div>
+      <ImportEvents />
+    </div>
+  );
+}
+
+// Eventos do calendário (inclusive Google Calendar) viram tarefas: o caminho de volta da sincronização
+function ImportEvents() {
+  const { createTask } = useTasks();
+  const [events, setEvents] = useState<CalEvent[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const load = async () => {
+    setBusy(true);
+    setMsg("");
+    try {
+      if (!(await requestCalendarAccess())) setMsg("Permita o acesso ao calendário nas configurações do Android.");
+      else setEvents(await listImportableEvents());
+    } catch { setMsg("Não foi possível ler o calendário."); }
+    setBusy(false);
+  };
+
+  const importOne = (e: CalEvent) => {
+    const dueDate = toLocalInput(e.due);
+    const h = Math.floor(e.minutes / 60), m = e.minutes % 60;
+    createTask({
+      title: e.title, description: e.description, project: FALLBACK_CATEGORY, priority: "Média", status: "Pendente",
+      dueDate, effort: e.minutes ? `${h ? `${h}h` : ""}${m ? `${m}${h ? "" : "m"}` : ""}` : "", quadrant: deriveQuadrant("Média", dueDate),
+      subtasks: [], tags: ["calendario"],
+    });
+    markImported(e.id);
+    setEvents(prev => prev?.filter(x => x.id !== e.id) ?? null);
+  };
+
+  return (
+    <div className={card} style={cardStyle}>
+      <p className="text-[13px] font-semibold mb-0.5" style={{ color: "var(--text)" }}>Trazer eventos do calendário</p>
+      <p className="text-[12px] mb-2" style={{ color: "var(--tertiary)" }}>Eventos dos próximos 30 dias, do calendário do Android e do Google Calendar, viram tarefas com prazo no início do evento.</p>
+      {events === null ? (
+        <button onClick={load} disabled={busy} className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-[12px] font-medium disabled:opacity-50" style={smallBtnStyle}>
+          <Download size={12} /> {busy ? "Lendo o calendário..." : "Ver eventos"}
+        </button>
+      ) : events.length === 0 ? (
+        <p className="text-[12px] py-2" style={{ color: "var(--sub)" }}>Nenhum evento novo nos próximos 30 dias.</p>
+      ) : events.map(e => (
+        <div key={e.id} className="flex items-center gap-2 py-2.5 last:border-0" style={rowStyle}>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-medium truncate" style={{ color: "var(--text)" }}>{e.title}</p>
+            <p className="text-[11px]" style={{ color: "var(--sub)" }}>
+              {e.due.toLocaleString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+            </p>
+          </div>
+          <button onClick={() => importOne(e)} className={smallBtn} style={{ background: "var(--accent)", color: "#fff" }}>
+            <Plus size={12} /> Tarefa
+          </button>
+        </div>
+      ))}
+      {msg && <p className="text-[12px] mt-2" style={{ color: "var(--sub)" }}>{msg}</p>}
     </div>
   );
 }
@@ -263,12 +329,10 @@ export function AlertsSection({ isDark }: { isDark: boolean }) {
     .map(t => ({ t, h: (new Date(t.dueDate).getTime() - Date.now()) / 36e5 }))
     .filter(x => x.h <= 168)
     .sort((a, b) => a.h - b.h);
-  const critical = upcoming.filter(x => x.h >= 0 && x.h <= 24).length;
-  const late = tasks.filter(isOverdue).length;
-  const atRisk = upcoming.filter(x => x.h > 24 && x.h <= 72).length;
 
   return (
     <div className="space-y-3">
+      <AlertSettings />
       <div className={`${card} border rounded-xl p-3`}>
         <p className={`text-xs font-semibold ${text} mb-3 flex items-center gap-1.5`}>
           <Bell size={12} className="text-orange-400" /> Régua de Urgência de Prazos
@@ -304,158 +368,226 @@ export function AlertsSection({ isDark }: { isDark: boolean }) {
         })}
       </div>
 
-      <div className={`${card} border border-rose-500/20 rounded-xl p-3`}>
-        <p className="text-xs font-semibold text-rose-400 mb-1 flex items-center gap-1.5">
-          <Bell size={11} /> Resumo Diário — Pronto para Envio
-        </p>
-        <p className="text-xs text-slate-400 mb-2">{critical} vencem em 24h • {late} atrasada{late !== 1 ? "s" : ""} • {atRisk} em risco</p>
-        <button className="w-full py-2 rounded-lg bg-rose-500/20 border border-rose-500/30 text-rose-400 text-xs font-medium hover:bg-rose-500/30 transition-colors">
-          📧 Disparar Alerta por E-mail / Push
-        </button>
-      </div>
     </div>
   );
 }
 
-// ── Search & Audit ────────────────────────────────────────────────
-export function SearchSection({ isDark }: { isDark: boolean }) {
-  const [q, setQ] = useState("");
-  const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
-  const text = isDark ? "text-slate-100" : "text-slate-900";
-  const sub = isDark ? "text-slate-400" : "text-slate-500";
+// Liga as notificações de prazo e o resumo diário (US11)
+function AlertSettings() {
+  const { tasks, notify } = useTasks();
+  const [cfg, setCfg] = useState<AlertConfig>(loadAlertConfig);
+  const [msg, setMsg] = useState("");
+  const native = isNative;
 
-  const index: Record<string, string[]> = {
-    "relatrio": ["Fechar o relatório semanal de horas", "Finalizar relatório de Estatística Aplicada"],
-    "treino": ["Treino de perna — Leg day completo"],
-    "prova": ["Estudar Árvores AVL para a prova de quarta"],
-    "fatura": ["Pagar fatura do Nubank antes do vencimento"],
-    "pastas": ["Organizar pastas antigas de downloads"],
+  const apply = async (next: AlertConfig) => {
+    if (next.enabled && !(await requestNotificationAccess())) {
+      setMsg("Permita as notificações do Ordena nas configurações do Android.");
+      return;
+    }
+    setCfg(next);
+    saveAlertConfig(next);
+    const n = await rescheduleAlerts(tasks).catch(() => 0);
+    setMsg(next.enabled ? `${n} aviso${n === 1 ? "" : "s"} agendado${n === 1 ? "" : "s"}.` : "Notificações de prazo desligadas.");
+  };
+  const sendNow = async () => {
+    if (!native) { notify(`Resumo do dia: ${summaryText(tasks, new Date())}`); return; }
+    await sendSummaryNow(tasks).catch(() => {});
   };
 
-  const results = q.length > 2
-    ? Object.entries(index)
-        .filter(([k]) => k.includes(q.toLowerCase().replace("ó", "o").replace("ç", "c")))
-        .flatMap(([, v]) => v)
-    : [];
+  const toggleRow = (label: string, sub: string, on: boolean, onClick: () => void) => (
+    <div className="flex items-center justify-between gap-3 py-2">
+      <div className="min-w-0">
+        <p className="text-[13px] font-semibold" style={{ color: "var(--text)" }}>{label}</p>
+        <p className="text-[11px]" style={{ color: "var(--sub)" }}>{sub}</p>
+      </div>
+      <button role="switch" aria-checked={on} aria-label={label} onClick={onClick} disabled={!native}
+        className="relative w-11 h-6 rounded-full transition-colors flex-none disabled:opacity-40" style={{ background: on ? "var(--success)" : "var(--border)" }}>
+        <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${on ? "translate-x-5" : "translate-x-0.5"}`} />
+      </button>
+    </div>
+  );
 
   return (
-    <div className="space-y-3">
-      <div className={`${card} border rounded-xl p-3`}>
-        <p className={`text-xs font-semibold ${text} mb-2 flex items-center gap-1.5`}>
-          <Search size={12} className="text-cyan-400" /> Busca de Tarefas
-        </p>
-        <div className={`flex items-center gap-2 ${isDark ? "bg-slate-700/60" : "bg-slate-100"} border ${isDark ? "border-slate-600" : "border-slate-200"} rounded-lg px-3 py-2`}>
-          <Search size={13} className={sub} />
-          <input
-            className={`flex-1 bg-transparent text-sm ${text} placeholder-slate-500 outline-none`}
-            placeholder='Tente "relatrio" ou "treino"...'
-            value={q}
-            onChange={e => setQ(e.target.value)}
-          />
-        </div>
-        {q.length > 2 && (
-          <div className="mt-2 space-y-1">
-            {results.length > 0 ? results.map((r, i) => (
-              <div key={i} className={`flex items-center gap-2 px-2 py-1.5 ${isDark ? "bg-slate-700/50" : "bg-slate-100"} rounded-lg`}>
-                <CheckCircle2 size={11} className="text-cyan-400 flex-none" />
-                <span className={`text-xs ${text}`}>{r}</span>
-              </div>
-            )) : (
-              <p className="text-xs text-slate-500 text-center py-2">Nenhum resultado encontrado</p>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className={`${card} border rounded-xl p-3`}>
-        <p className={`text-xs font-semibold ${text} mb-2`}>Feed de Auditoria Cronológica</p>
-        <div className="space-y-2">
-          {AUDIT_LOG.map(entry => (
-            <div key={entry.id} className="flex gap-2">
-              <div className="w-1 flex-none rounded-full bg-indigo-500/40 self-stretch" />
-              <div className="flex-1">
-                <div className="flex items-center gap-1 flex-wrap">
-                  <span className={`text-[10px] font-semibold ${text}`}>{entry.user}</span>
-                  <span className="text-[10px] text-slate-500">{entry.action}</span>
-                </div>
-                <p className="text-[10px] text-slate-400">{entry.detail}</p>
-                <p className="text-[9px] text-slate-600 font-mono">{entry.timestamp}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+    <div className={card} style={cardStyle}>
+      <p className="text-[13px] font-semibold mb-1 flex items-center gap-1.5" style={{ color: "var(--text)" }}><Bell size={13} /> Notificações</p>
+      {toggleRow("Avisos de prazo", STEPS.map(s => s.label.replace("Vence em ", "")).slice(0, 3).join(", ") + " antes e no prazo", cfg.enabled, () => apply({ ...cfg, enabled: !cfg.enabled }))}
+      {cfg.enabled && toggleRow(`Resumo diário às ${cfg.summaryHour}h`, "Quantas vencem hoje, atrasadas e em aberto", cfg.summary, () => apply({ ...cfg, summary: !cfg.summary }))}
+      {cfg.enabled && cfg.summary && (
+        <select className="w-full text-[13px] px-3 py-2 mt-1 rounded-lg outline-none" style={{ background: "var(--sunken)", border: "1px solid var(--border)", color: "var(--text)" }}
+          value={cfg.summaryHour} onChange={e => apply({ ...cfg, summaryHour: Number(e.target.value) })} aria-label="Hora do resumo diário">
+          {[6, 7, 8, 9, 10, 12, 18, 20].map(h => <option key={h} value={h}>Resumo às {h}h</option>)}
+        </select>
+      )}
+      {!native && <p className="text-[12px] mt-1" style={{ color: "var(--sub)" }}>As notificações funcionam no app Android.</p>}
+      <button onClick={sendNow} className="w-full mt-2 flex items-center justify-center gap-2 py-2 rounded-xl text-[12px] font-medium" style={smallBtnStyle}>
+        <Bell size={12} /> Ver resumo agora
+      </button>
+      {msg && <p className="text-[12px] mt-2" style={{ color: "var(--sub)" }}>{msg}</p>}
     </div>
   );
 }
 
-// ── Recurrence & Email ────────────────────────────────────────────
-export function RecurSection({ isDark }: { isDark: boolean }) {
-  const [period, setPeriod] = useState("Semanal");
-  const [stopAfter, setStopAfter] = useState("12");
-  const [converted, setConverted] = useState(false);
-  const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
-  const text = isDark ? "text-slate-100" : "text-slate-900";
-  const sub = isDark ? "text-slate-400" : "text-slate-500";
-  const inputCls = `w-full bg-slate-700/50 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none focus:border-indigo-500`;
+// ── Busca, histórico e arquivo (US12) ─────────────────────────────
+export function SearchSection({ isDark }: { isDark: boolean }) {
+  const { tasks, archivedTasks, history, updateTask } = useTasks();
+  const [q, setQ] = useState("");
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const all = [...tasks, ...archivedTasks];
+  const results = q.trim().length >= 2
+    ? all.filter(t => fuzzyMatch(q, [t.title, t.description, t.project, ...(t.tags ?? []), ...(t.notes ?? []).map(n => n.text)].join(" ")))
+    : [];
+  const doneActive = tasks.filter(isDone);
+  const open = tasks.find(t => t.id === openId);
+  const fmtWhen = (iso: string) => new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const shownHistory = showAll ? history : history.slice(0, 15);
 
   return (
     <div className="space-y-3">
-      <div className={`${card} border rounded-xl p-3`}>
-        <p className={`text-xs font-semibold ${text} mb-3 flex items-center gap-1.5`}>
-          <Repeat size={12} className="text-indigo-400" /> Configurador de Tarefas Recorrentes
-        </p>
-        <div className="space-y-3">
-          <div>
-            <p className={`text-[10px] ${sub} mb-1`}>Periodicidade</p>
-            <div className="grid grid-cols-3 gap-1.5">
-              {["Diária", "Semanal", "Mensal"].map(p => (
-                <button key={p} onClick={() => setPeriod(p)}
-                  className={`py-1.5 rounded-lg text-xs border transition-all ${period === p ? "bg-indigo-500 border-indigo-500 text-white" : "border-slate-600 text-slate-400"}`}>
-                  {p}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <p className={`text-[10px] ${sub} mb-1`}>Encerrar após</p>
-              <input className={inputCls} value={stopAfter} onChange={e => setStopAfter(e.target.value)} placeholder="12" />
-            </div>
-            <div>
-              <p className={`text-[10px] ${sub} mb-1`}>Unidade</p>
-              <select className={inputCls}><option>ocorrências</option><option>semanas</option></select>
-            </div>
-          </div>
-          <button className="w-full py-2 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 text-xs font-medium">
-            Salvar Configuração de Recorrência
-          </button>
+      <div className={card} style={cardStyle}>
+        <p className="text-[13px] font-semibold mb-0.5" style={{ color: "var(--text)" }}>Buscar em todas as tarefas</p>
+        <p className="text-[12px] mb-2" style={{ color: "var(--tertiary)" }}>Procura no título, descrição, categoria, tags e anotações, inclusive nas arquivadas. Aceita erros de digitação e falta de acento.</p>
+        <div className="flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: "var(--sunken)", border: "1px solid var(--border)" }}>
+          <Search size={13} style={{ color: "var(--sub)" }} />
+          <input className="flex-1 bg-transparent text-[13px] outline-none" style={{ color: "var(--text)" }}
+            placeholder='Ex: "relatrio", "fatra", "estatistica"' value={q} onChange={e => setQ(e.target.value)} />
         </div>
+        {q.trim().length >= 2 && results.length === 0 && <p className="text-[12px] py-2" style={{ color: "var(--sub)" }}>Nada encontrado.</p>}
+        {results.map(t => (
+          <div key={t.id} className="flex items-center gap-2 py-2.5 last:border-0" style={rowStyle}>
+            <button onClick={() => !t.archived && setOpenId(t.id)} className="flex-1 min-w-0 text-left">
+              <p className={`text-[13px] font-medium truncate ${isDone(t) ? "line-through" : ""}`} style={{ color: "var(--text)" }}>{t.title}</p>
+              <p className="text-[11px]" style={{ color: "var(--sub)" }}>{t.project} · {t.archived ? "Arquivada" : t.status}</p>
+            </button>
+            {t.archived && (
+              <button onClick={() => updateTask(t.id, { archived: false })} className={smallBtn} style={smallBtnStyle}>
+                <ArchiveRestore size={12} /> Desarquivar
+              </button>
+            )}
+          </div>
+        ))}
       </div>
 
-      <div className={`${card} border rounded-xl p-3`}>
-        <p className={`text-xs font-semibold ${text} mb-2 flex items-center gap-1.5`}>
-          <Mail size={12} className="text-blue-400" /> Captura de E-mail → Tarefa
-        </p>
-        <div className={`${isDark ? "bg-slate-700/40" : "bg-slate-100"} rounded-xl p-2.5 mb-3`}>
-          <div className="flex items-center gap-1 mb-1">
-            <Mail size={10} className="text-blue-400" />
-            <span className="text-[10px] font-medium text-blue-400">De: secretaria@faculdade.edu.br</span>
-          </div>
-          <p className={`text-[10px] font-semibold ${text} mb-0.5`}>Assunto: Entrega do trabalho de Estatística</p>
-          <p className="text-[10px] text-slate-400">Lembrete: o trabalho deve ser enviado pelo portal até sexta às 23h59.</p>
+      <div className={card} style={cardStyle}>
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <p className="text-[13px] font-semibold" style={{ color: "var(--text)" }}>Arquivadas ({archivedTasks.length})</p>
+          {doneActive.length > 0 && (
+            <button onClick={() => doneActive.forEach(t => updateTask(t.id, { archived: true }))} className={smallBtn} style={smallBtnStyle}>
+              <Archive size={12} /> Arquivar {doneActive.length} concluída{doneActive.length === 1 ? "" : "s"}
+            </button>
+          )}
         </div>
-        {converted ? (
-          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2.5 py-2 flex items-center gap-2">
-            <CheckCircle2 size={12} className="text-emerald-400" />
-            <span className="text-xs text-emerald-300">Tarefa criada: "Entrega do trabalho de Estatística"</span>
+        <p className="text-[12px] mb-1" style={{ color: "var(--tertiary)" }}>Arquivar tira a tarefa da lista, da agenda e dos alertas sem apagar. Use o botão de arquivo no detalhe da tarefa.</p>
+        {archivedTasks.length === 0 && <p className="text-[12px] py-2" style={{ color: "var(--sub)" }}>Nenhuma tarefa arquivada.</p>}
+        {archivedTasks.map(t => (
+          <div key={t.id} className="flex items-center gap-2 py-2.5 last:border-0" style={rowStyle}>
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-medium truncate" style={{ color: "var(--text)" }}>{t.title}</p>
+              <p className="text-[11px]" style={{ color: "var(--sub)" }}>{t.project} · {t.status}</p>
+            </div>
+            <button onClick={() => updateTask(t.id, { archived: false })} className={smallBtn} style={smallBtnStyle}>
+              <ArchiveRestore size={12} /> Desarquivar
+            </button>
           </div>
-        ) : (
-          <button onClick={() => setConverted(true)} className="w-full py-2 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-400 text-xs font-medium hover:bg-blue-500/30 transition-colors">
-            Converter E-mail em Tarefa
+        ))}
+      </div>
+
+      <div className={card} style={cardStyle}>
+        <p className="text-[13px] font-semibold mb-1 flex items-center gap-1.5" style={{ color: "var(--text)" }}>
+          <History size={13} /> Histórico de atividades
+        </p>
+        {history.length === 0 && <p className="text-[12px] py-2" style={{ color: "var(--sub)" }}>Nada ainda. Crie, conclua ou edite uma tarefa e ela aparece aqui.</p>}
+        {shownHistory.map(h => (
+          <div key={h.id} className="flex items-start gap-2 py-2 last:border-0" style={rowStyle}>
+            <span className="text-[11px] font-mono flex-none w-[84px]" style={{ color: "var(--tertiary)" }}>{fmtWhen(h.at)}</span>
+            <p className="text-[12px] min-w-0" style={{ color: "var(--text)" }}>
+              <strong>{h.action}</strong> <span style={{ color: "var(--sub)" }}>{h.title}</span>
+            </p>
+          </div>
+        ))}
+        {history.length > 15 && (
+          <button onClick={() => setShowAll(s => !s)} className="w-full text-[12px] pt-2" style={{ color: "var(--accent)" }}>
+            {showAll ? "Mostrar menos" : `Ver tudo (${history.length})`}
           </button>
         )}
       </div>
+      {open && <TaskDetailModal task={open} isDark={isDark} onClose={() => setOpenId(null)} />}
+    </div>
+  );
+}
+
+// ── Recorrentes e e-mail → tarefa (US13) ──────────────────────────
+export function RecurSection({ isDark }: { isDark: boolean }) {
+  const { tasks, createTask } = useTasks();
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
+  const [draft, setDraft] = useState<{ title: string; dueDate: string; body: string } | null>(null);
+  const recurring = tasks.filter(t => t.recurrence && !isDone(t));
+  const open = tasks.find(t => t.id === openId);
+  const inp = "w-full text-[13px] px-3 py-2 rounded-lg outline-none";
+  const inpStyle = { background: "var(--sunken)", border: "1px solid var(--border)", color: "var(--text)" };
+
+  const create = () => {
+    if (!draft || !draft.title.trim()) return;
+    const id = createTask({
+      title: draft.title.trim(), description: draft.body, project: FALLBACK_CATEGORY, priority: "Média", status: "Pendente",
+      dueDate: draft.dueDate, effort: "", quadrant: deriveQuadrant("Média", draft.dueDate), subtasks: [], tags: ["email"],
+    });
+    setDraft(null);
+    setEmail("");
+    setOpenId(id);
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className={card} style={cardStyle}>
+        <p className="text-[13px] font-semibold mb-0.5 flex items-center gap-1.5" style={{ color: "var(--text)" }}><Repeat size={13} /> Tarefas recorrentes</p>
+        <p className="text-[12px] mb-1" style={{ color: "var(--tertiary)" }}>No detalhe da tarefa, em "Repetir", escolha diária, semanal ou mensal. Ao concluir, a próxima é criada sozinha.</p>
+        {recurring.length === 0 && <p className="text-[12px] py-2" style={{ color: "var(--sub)" }}>Nenhuma tarefa em aberto se repete.</p>}
+        {recurring.map(t => (
+          <button key={t.id} onClick={() => setOpenId(t.id)} className="w-full flex items-center gap-2 py-2.5 text-left last:border-0" style={rowStyle}>
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-medium truncate" style={{ color: "var(--text)" }}>{t.title}</p>
+              <p className="text-[11px]" style={{ color: "var(--sub)" }}>
+                {t.recurrence!.freq}{t.recurrence!.left !== undefined ? ` · mais ${t.recurrence!.left} vez${t.recurrence!.left === 1 ? "" : "es"}` : ""}
+              </p>
+            </div>
+            <span className="text-[11px] font-mono flex-none" style={{ color: "var(--tertiary)" }}>
+              {new Date(t.dueDate).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <div className={card} style={cardStyle}>
+        <p className="text-[13px] font-semibold mb-0.5 flex items-center gap-1.5" style={{ color: "var(--text)" }}><Mail size={13} /> E-mail → tarefa</p>
+        <p className="text-[12px] mb-2" style={{ color: "var(--tertiary)" }}>Copie o e-mail (assunto e texto) e cole aqui. O Ordena usa o assunto como título e procura o prazo no texto.</p>
+        {!draft ? (
+          <>
+            <textarea rows={5} className={inp} style={inpStyle} value={email} onChange={e => setEmail(e.target.value)}
+              placeholder={"Assunto: Entrega do trabalho de Estatística\n\nO trabalho deve ser enviado pelo portal até sexta às 23h59."} />
+            <button onClick={() => setDraft({ ...parseEmail(email), body: email.trim() })} disabled={!email.trim()}
+              className="w-full mt-2 py-2 rounded-xl text-[12px] font-semibold disabled:opacity-40" style={{ background: "var(--accent)", color: "#fff" }}>
+              Ler e-mail
+            </button>
+          </>
+        ) : (
+          <>
+            <label className="block text-[11px] mb-1" style={{ color: "var(--sub)" }}>Título</label>
+            <input className={inp} style={inpStyle} value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} />
+            <label className="block text-[11px] mt-2 mb-1" style={{ color: "var(--sub)" }}>Prazo</label>
+            <input type="datetime-local" className={inp} style={inpStyle} value={draft.dueDate} min={toLocalInput(new Date())}
+              onChange={e => setDraft({ ...draft, dueDate: e.target.value })} />
+            <div className="flex gap-2 mt-3">
+              <button onClick={() => setDraft(null)} className="px-4 py-2 rounded-xl text-[12px]" style={{ border: "1px solid var(--border)", color: "var(--sub)" }}>Voltar</button>
+              <button onClick={create} disabled={!draft.title.trim()} className="flex-1 py-2 rounded-xl text-[12px] font-semibold disabled:opacity-40" style={{ background: "var(--accent)", color: "#fff" }}>
+                Criar tarefa
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+      {open && <TaskDetailModal task={open} isDark={isDark} onClose={() => setOpenId(null)} />}
     </div>
   );
 }

@@ -104,3 +104,31 @@ export async function removeAllEvents() {
   for (const { eventId } of Object.values(map)) await CapacitorCalendar.deleteEvent({ id: eventId }).catch(() => {});
   localStorage.removeItem(MAP_KEY);
 }
+
+// ── Calendário → Ordena ───────────────────────────────────────────
+// Eventos dos próximos dias que não foram criados pelo Ordena podem virar tarefas.
+const IMPORTED_KEY = "ordena-calendario-importados";
+export type CalEvent = { id: string; title: string; description: string; due: Date; minutes: number; location?: string };
+
+export async function listImportableEvents(days = 30): Promise<CalEvent[]> {
+  const now = Date.now();
+  const { result } = await CapacitorCalendar.listEventsInRange({ from: now, to: now + days * 864e5 });
+  const skip = new Set([...Object.values(read<EventMap>(MAP_KEY, {})).map(e => e.eventId), ...read<string[]>(IMPORTED_KEY, [])]);
+  const seen = new Set<string>();
+  const list: CalEvent[] = [];
+  for (const e of result.sort((a, b) => a.startDate - b.startDate)) {
+    if (skip.has(e.id) || seen.has(e.id) || e.birthdayContactIdentifier || e.startDate <= now) continue;
+    seen.add(e.id); // evento repetido aparece uma vez (a próxima)
+    const s = new Date(e.startDate);
+    // Evento de dia inteiro vem em UTC: o prazo é o fim daquele dia no horário local
+    const due = e.isAllDay ? new Date(s.getUTCFullYear(), s.getUTCMonth(), s.getUTCDate(), 23, 59) : s;
+    list.push({
+      id: e.id, title: e.title || "Evento sem título", description: e.description ?? "", due,
+      minutes: e.isAllDay ? 0 : Math.round((e.endDate - e.startDate) / 6e4), location: e.location ?? undefined,
+    });
+  }
+  return list;
+}
+
+export const markImported = (id: string) =>
+  localStorage.setItem(IMPORTED_KEY, JSON.stringify([...read<string[]>(IMPORTED_KEY, []), id]));

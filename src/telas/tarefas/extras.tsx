@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Lock, Link2, X, CheckCircle2, Circle, StickyNote, Paperclip, Camera, Mic, Square, FileText, Trash2,
-  MapPin, LocateFixed, CalendarPlus, Unlock,
+  MapPin, LocateFixed, CalendarPlus, Unlock, Repeat,
 } from "lucide-react";
 import { Geolocation } from "@capacitor/geolocation";
-import { useTasks, isDone, blockersOf, wouldCycle, type AppTask, type Attachment } from "./context/TaskContext";
+import { useTasks, isDone, blockersOf, wouldCycle, nextDue, type AppTask, type Attachment, type Recurrence } from "./context/TaskContext";
 import { genId } from "./utils/subtaskTree";
 import { saveBlob, getBlob, deleteBlob, openBlob } from "./utils/anexos";
 import { addToCalendarPrompt } from "../../nativo/calendario";
@@ -144,6 +144,47 @@ export function LocationSection({ task }: { task: AppTask }) {
       </button>
       {editing && <button onClick={() => setEditing(false)} className="w-full text-xs mt-1 py-1.5" style={{ color: "var(--sub)" }}>Cancelar</button>}
       {error && <p className="text-xs mt-1.5" style={{ color: "var(--critical)" }}>{error}</p>}
+    </Section>
+  );
+}
+
+// ── Repetição (US13) ──────────────────────────────────────────────
+
+const FREQS: Recurrence["freq"][] = ["Diária", "Semanal", "Mensal"];
+
+export function RecurrenceSection({ task }: { task: AppTask }) {
+  const { updateTask } = useTasks();
+  const rec = task.recurrence;
+  const setRec = (r: Recurrence | undefined) => updateTask(task.id, { recurrence: r });
+  const next = rec && new Date(nextDue(task.dueDate, rec.freq)).toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
+
+  return (
+    <Section icon={Repeat} title="Repetir">
+      <div className="flex gap-1.5">
+        {[undefined, ...FREQS].map(f => {
+          const active = rec?.freq === f;
+          return (
+            <button key={f ?? "nao"} onClick={() => setRec(f ? { ...rec, freq: f } : undefined)} className="flex-1 text-xs py-1.5 rounded-xl"
+              style={active || (!f && !rec) ? { background: "var(--accent)", color: "#fff" } : { border: "1px solid var(--border)", color: "var(--sub)" }}>
+              {f ?? "Não"}
+            </button>
+          );
+        })}
+      </div>
+      {rec && (
+        <>
+          <label className="flex items-center gap-2 text-xs mt-2" style={{ color: "var(--sub)" }}>
+            Repetir mais
+            <input type="number" min={0} inputMode="numeric" className="w-16 text-sm px-2 py-1 rounded-lg outline-none" style={fieldStyle}
+              placeholder="∞" value={rec.left ?? ""}
+              onChange={e => setRec({ ...rec, left: e.target.value === "" ? undefined : Math.max(0, Number(e.target.value)) })} />
+            vezes (vazio = sempre)
+          </label>
+          <p className="text-[11px] mt-1.5" style={{ color: "var(--tertiary)" }}>
+            {rec.left === 0 ? "Esta é a última vez." : `Ao concluir, a próxima é criada para ${next}.`}
+          </p>
+        </>
+      )}
     </Section>
   );
 }
