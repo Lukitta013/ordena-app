@@ -97,10 +97,10 @@ O backlog por entrega, como no documento do produto: Sprint 1 (AV1, 30%), Sprint
 |----|----------|--------|--------|
 | US15 | Gráficos e relatórios de produtividade | 🟡 Parcial | Análises mostra concluídas, em aberto e atrasadas a partir das tarefas reais. Comparativos por período são demonstração. |
 | US16 | Registrar tempo gasto e calibrar estimativas | 🖼️ Demonstração | Análises › Tempo e Estimativas |
-| US17 | Cronograma (Gantt) das tarefas | 🖼️ Demonstração | Projetos › Cronograma Gantt |
+| US17 | Cronograma (Gantt) das tarefas | ✅ Implementado | Projetos › Cronograma Gantt mostra as tarefas em aberto como barras de quando podem começar (hoje ou depois das dependências) até o prazo, com filtro por categoria, cadeado nas que esperam outra tarefa e contorno vermelho nas atrasadas. Tocar na barra abre a tarefa. |
 | US18 | Projeção da data de conclusão | 🟡 Parcial | Projetos › Projeções usa as tarefas restantes reais com um ritmo fixo. |
 | US22 | Sugestão de pausas e alerta de sobrecarga do dia | 🖼️ Demonstração | Análises › Bem-estar e Carga Diária |
-| US23 | Backup na nuvem e exportação em PDF | 🖼️ Demonstração | Ajustes › Backup e Exportação |
+| US23 | Backup na nuvem e exportação em PDF | ✅ Implementado | Ajustes › Backup e Exportação gera um arquivo de backup (tarefas, categorias, status, modelos e histórico) que o Android oferece para salvar no Google Drive ou onde quiser, e restaura a partir dele. "Exportar relatório PDF" gera um PDF com resumo, atrasadas, tarefas em aberto por categoria e concluídas na semana. Anexos não entram no backup. |
 | US24 | Metas pessoais diárias | 🖼️ Demonstração | Análises › Metas Pessoais |
 | US26 | Automações com regras "se-então" | 🖼️ Demonstração | Ajustes › Automações |
 | US27 | Fechamento diário, plano do dia seguinte e checkpoints | 🟡 Parcial | Análises › Fechamento Diário usa as tarefas reais (feitas hoje, prazo amanhã, sugestão da mais rápida). Checkpoints são demonstração. |

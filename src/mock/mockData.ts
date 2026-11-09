@@ -385,12 +385,3 @@ export const MONTHLY_DATA = [
   { month: "Set", mensal: 84, trimestral: 76 },
 ];
 
-export const GANTT_TASKS = [
-  { id: "g1", title: "Pesquisar o tema do TCC", start: 0, duration: 3, color: "#F59E0B", deps: [] },
-  { id: "g2", title: "Escrever a introdução", start: 3, duration: 3, color: "#10B981", deps: ["g1"] },
-  { id: "g3", title: "Revisar bibliografia", start: 2, duration: 4, color: "#6366F1", deps: ["g1"] },
-  { id: "g4", title: "Montar os slides", start: 6, duration: 3, color: "#EC4899", deps: ["g2"] },
-  { id: "g5", title: "Ensaiar a apresentação", start: 9, duration: 2, color: "#14B8A6", deps: ["g4"] },
-  { id: "g6", title: "Entregar o TCC", start: 11, duration: 2, color: "#F43F5E", deps: ["g5"] },
-];
-

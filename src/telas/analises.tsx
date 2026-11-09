@@ -1,11 +1,17 @@
 import { useState, useEffect, useRef } from "react";
-import { Zap, Code2, Moon, Download, Target, X, Play, Pause, CheckCircle2, RefreshCw, Coffee } from "lucide-react";
+import { Zap, Code2, Moon, Download, Target, X, Play, Pause, CheckCircle2, RefreshCw, Coffee, Lock, Upload } from "lucide-react";
+import { jsPDF } from "jspdf";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, Area, AreaChart, CartesianGrid,
 } from "recharts";
-import { PRODUCTIVITY_DATA, MONTHLY_DATA, GANTT_TASKS, TASKS, JSON_RULES, OKRS } from "../mock/mockData";
-import { useTasks, isDone, isOverdue, sameDay, parseEffort } from "./tarefas/context/TaskContext";
+import { PRODUCTIVITY_DATA, MONTHLY_DATA, TASKS, JSON_RULES, OKRS } from "../mock/mockData";
+import { useTasks, isDone, isOverdue, sameDay, parseEffort, PROJECT_COLORS, type AppTask } from "./tarefas/context/TaskContext";
+import { TaskDetailModal } from "./tarefas";
+import { openBlob } from "./tarefas/utils/anexos";
+
+const card = "rounded-xl p-3";
+const cardStyle = { background: "var(--surface)", border: "1px solid var(--border)" };
 
 
 
@@ -67,68 +73,96 @@ export function BiSection({ isDark }: { isDark: boolean }) {
   );
 }
 
-// ── Gantt ─────────────────────────────────────────────────────────
+// ── Cronograma Gantt (US17) ───────────────────────────────────────
+// Cada tarefa aberta vira uma barra que começa quando ela pode começar (hoje, ou no prazo da dependência
+// que termina por último) e vai até o prazo. Tocar na barra abre a tarefa.
+const DAY_W = 34;
 export function GanttSection({ isDark }: { isDark: boolean }) {
-  const text = isDark ? "text-slate-100" : "text-slate-900";
-  const sub = isDark ? "text-slate-400" : "text-slate-500";
-  const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
-  const totalDays = 13;
-  const dayLabels = Array.from({ length: totalDays }, (_, i) => `D${i + 1}`);
+  const { tasks } = useTasks();
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [project, setProject] = useState<string | null>(null);
+  const today = new Date(new Date().toDateString());
+  const dayIdx = (iso: string) => Math.floor((new Date(new Date(iso).toDateString()).getTime() - today.getTime()) / 864e5);
+
+  const open = tasks.filter(t => !isDone(t) && (!project || t.project === project));
+  const rows = open.map(t => {
+    const deps = tasks.filter(d => t.dependsOn?.includes(d.id) && !isDone(d));
+    const startDay = Math.max(0, ...deps.map(d => dayIdx(d.dueDate)));
+    const endDay = dayIdx(t.dueDate);
+    return { t, deps, start: Math.min(startDay, Math.max(endDay, 0)), end: endDay };
+  }).sort((a, b) => a.start - b.start || a.end - b.end);
+  const days = Math.min(60, Math.max(14, ...rows.map(r => r.end + 2)));
+  const projects = [...new Set(tasks.filter(t => !isDone(t)).map(t => t.project))];
+  const openTask = tasks.find(t => t.id === openId);
+  const chipStyle = (on: boolean) => on ? { background: "var(--accent)", color: "#fff" } : { border: "1px solid var(--border)", color: "var(--sub)" };
 
   return (
-    <div className={`${card} border rounded-xl p-3`}>
-      <p className={`text-xs font-semibold ${text} mb-3`}>Cronograma de Gantt Interativo</p>
-      <div className="overflow-x-auto scrollbar-hide">
-        <div style={{ minWidth: 520 }}>
-          {/* Header */}
-          <div className="flex mb-1">
-            <div className="w-32 flex-none" />
-            <div className="flex flex-1">
-              {dayLabels.map(d => (
-                <div key={d} className="flex-1 text-center text-[9px] text-slate-500 font-mono">{d}</div>
-              ))}
-            </div>
-          </div>
-          {/* Grid */}
-          {GANTT_TASKS.map(task => (
-            <div key={task.id} className="flex items-center mb-2 group">
-              <div className="w-32 flex-none pr-2">
-                <p className={`text-[10px] font-medium ${text} truncate`}>{task.title}</p>
-              </div>
-              <div className="flex flex-1 relative h-6">
-                {/* Background grid */}
-                {dayLabels.map((_, i) => (
-                  <div key={i} className="flex-1 border-l border-slate-700/20" />
-                ))}
-                {/* Task bar */}
-                <div
-                  className="absolute top-0.5 bottom-0.5 rounded-md flex items-center px-2 cursor-pointer hover:brightness-110 transition-all shadow-lg"
-                  style={{
-                    left: `${(task.start / totalDays) * 100}%`,
-                    width: `${(task.duration / totalDays) * 100}%`,
-                    background: task.color,
-                    opacity: 0.85,
-                  }}
-                >
-                  <span className="text-white text-[9px] font-semibold truncate">{task.title}</span>
-                </div>
-              </div>
-            </div>
-          ))}
-          {/* Dependency arrows hint */}
-          <div className="mt-2 pt-2 border-t border-slate-700/30">
-            <p className="text-[10px] text-slate-500 text-center">↔ Barras interativas • Setas de dependência: Pesquisa → Introdução → Slides → Entrega</p>
-          </div>
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-2 mt-3">
-        {GANTT_TASKS.map(t => (
-          <div key={t.id} className="flex items-center gap-1">
-            <div className="w-2.5 h-2.5 rounded-sm" style={{ background: t.color }} />
-            <span className="text-[9px] text-slate-500">{t.title}</span>
-          </div>
+    <div className="space-y-3">
+      <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
+        {[null, ...projects].map(p => (
+          <button key={p ?? "todos"} onClick={() => setProject(p)} className="flex-none text-[11px] font-medium px-2.5 py-1 rounded-full" style={chipStyle(project === p)}>
+            {p ?? "Todas"}
+          </button>
         ))}
       </div>
+      <div className={card} style={cardStyle}>
+        {rows.length === 0 && <p className="text-[12px] py-2" style={{ color: "var(--sub)" }}>Nenhuma tarefa em aberto.</p>}
+        {rows.length > 0 && (
+          <div className="flex">
+            <div className="w-28 flex-none pt-6">
+              {rows.map(({ t }) => (
+                <button key={t.id} onClick={() => setOpenId(t.id)} className="h-9 w-full text-left pr-2 flex items-center">
+                  <span className="text-[11px] font-medium truncate" style={{ color: "var(--text)" }}>{t.title}</span>
+                </button>
+              ))}
+            </div>
+            <div className="flex-1 overflow-x-auto scrollbar-hide">
+              <div style={{ width: days * DAY_W }} className="relative">
+                <div className="flex h-6">
+                  {Array.from({ length: days }, (_, i) => {
+                    const d = new Date(today.getTime() + i * 864e5);
+                    return (
+                      <div key={i} style={{ width: DAY_W, color: i === 0 ? "var(--accent)" : "var(--tertiary)" }} className="flex-none text-center text-[9px] font-mono leading-tight">
+                        {i === 0 ? "Hoje" : d.toLocaleDateString("pt-BR", { weekday: "narrow" })}<br />{d.getDate()}
+                      </div>
+                    );
+                  })}
+                </div>
+                {rows.map(({ t, deps, start, end }) => {
+                  const late = end < 0;
+                  const left = start * DAY_W;
+                  const width = Math.max(1, (late ? 1 : end - start + 1)) * DAY_W - 4;
+                  return (
+                    <div key={t.id} className="h-9 relative" style={{ borderTop: "1px solid var(--border)" }}>
+                      <button onClick={() => setOpenId(t.id)} aria-label={`${t.title}: prazo ${new Date(t.dueDate).toLocaleDateString("pt-BR")}`}
+                        className="absolute top-1.5 bottom-1.5 rounded-md flex items-center gap-1 px-1.5 text-white text-[10px] font-semibold overflow-hidden"
+                        style={{ left: left + 2, width, background: PROJECT_COLORS[t.project] ?? "var(--accent)", opacity: deps.length ? 0.6 : 0.9, outline: late ? "2px solid var(--critical)" : undefined }}>
+                        {deps.length > 0 && <Lock size={10} className="flex-none" />}
+                        <span className="truncate">{late ? "Atrasada" : t.effort || ""}</span>
+                      </button>
+                    </div>
+                  );
+                })}
+                <div className="absolute top-6 bottom-0 w-px" style={{ left: DAY_W / 2, background: "var(--accent)", opacity: 0.4 }} />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      {rows.some(r => r.deps.length) && (
+        <div className={card} style={cardStyle}>
+          <p className="text-[13px] font-semibold mb-1" style={{ color: "var(--text)" }}>Dependências</p>
+          {rows.filter(r => r.deps.length).map(({ t, deps }) => (
+            <p key={t.id} className="text-[12px] py-1" style={{ color: "var(--sub)" }}>
+              {deps.map(d => d.title).join(", ")} <span style={{ color: "var(--accent)" }}>→</span> <span style={{ color: "var(--text)" }}>{t.title}</span>
+            </p>
+          ))}
+        </div>
+      )}
+      <p className="text-[11px] px-1" style={{ color: "var(--tertiary)" }}>
+        A barra vai de quando a tarefa pode começar até o prazo. Barras com cadeado esperam outra tarefa terminar; as com contorno vermelho estão atrasadas. Arraste para o lado para ver mais dias.
+      </p>
+      {openTask && <TaskDetailModal task={openTask} isDark={isDark} onClose={() => setOpenId(null)} />}
     </div>
   );
 }
@@ -325,87 +359,126 @@ export function BurnoutSection({ isDark }: { isDark: boolean }) {
   );
 }
 
-// ── Backup & PDF ──────────────────────────────────────────────────
-export function BackupSection({ isDark }: { isDark: boolean }) {
-  const [backing, setBacking] = useState(false);
-  const [backupOk, setBackupOk] = useState(false);
-  const [showPdf, setShowPdf] = useState(false);
-  const { tasks } = useTasks();
-  const done = tasks.filter(isDone);
-  const text = isDark ? "text-slate-100" : "text-slate-900";
-  const sub = isDark ? "text-slate-400" : "text-slate-500";
-  const card = isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200";
+// ── Backup e relatório PDF (US23) ─────────────────────────────────
+// O backup é um arquivo .json com tudo que o app guarda; o Android oferece onde salvar
+// (Google Drive, Downloads, WhatsApp...), e restaurar lê esse arquivo de volta.
+const BACKUP_KEYS = ["ordena-tasks", "ordena-categorias", "ordena-status", "ordena-modelos", "ordena-historico"];
+const LAST_KEY = "ordena-ultimo-backup";
+const stamp = () => new Date().toISOString().slice(0, 10);
 
-  const runBackup = () => {
-    setBacking(true);
-    setTimeout(() => { setBacking(false); setBackupOk(true); }, 2500);
+function buildReport(tasks: AppTask[]) {
+  const pdf = new jsPDF({ unit: "mm", format: "a4" });
+  let y = 20;
+  const line = (txt: string, size = 10, bold = false, gap = 6) => {
+    if (y > 280) { pdf.addPage(); y = 20; }
+    pdf.setFont("helvetica", bold ? "bold" : "normal").setFontSize(size);
+    const parts = pdf.splitTextToSize(txt, 180) as string[];
+    pdf.text(parts, 15, y);
+    y += gap * parts.length;
   };
+  const fmt = (iso: string) => new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const open = tasks.filter(t => !isDone(t)).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  const done = tasks.filter(isDone);
+  const week = done.filter(t => Date.now() - new Date(t.updatedAt).getTime() < 7 * 864e5);
+  const late = tasks.filter(isOverdue);
+
+  line("Ordena — Relatório de tarefas", 18, true, 9);
+  line(`Gerado em ${new Date().toLocaleString("pt-BR")}`, 10, false, 10);
+  line("Resumo", 13, true, 7);
+  line(`Em aberto: ${open.length}   Concluídas: ${done.length}   Atrasadas: ${late.length}   Concluídas nos últimos 7 dias: ${week.length}`, 10, false, 10);
+  if (late.length) {
+    line("Atrasadas", 13, true, 7);
+    late.forEach(t => line(`• ${t.title} — prazo ${fmt(t.dueDate)} (${t.project}, prioridade ${t.priority})`));
+    y += 4;
+  }
+  line("Em aberto por categoria", 13, true, 7);
+  for (const p of [...new Set(open.map(t => t.project))]) {
+    line(p, 11, true, 6);
+    open.filter(t => t.project === p).forEach(t => line(`• ${t.title} — prazo ${fmt(t.dueDate)}, ${t.priority}${t.effort ? `, ${t.effort}` : ""}`));
+    y += 2;
+  }
+  if (week.length) {
+    y += 2;
+    line("Concluídas nos últimos 7 dias", 13, true, 7);
+    week.forEach(t => line(`• ${t.title} (${t.project})`));
+  }
+  return pdf.output("blob");
+}
+
+export function BackupSection(_: { isDark: boolean }) {
+  const { tasks, notify } = useTasks();
+  const [last, setLast] = useState(() => localStorage.getItem(LAST_KEY));
+  const [msg, setMsg] = useState("");
+  const [pending, setPending] = useState<Record<string, unknown> | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const btn = "w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[13px] font-semibold";
+
+  const exportBackup = async () => {
+    const data: Record<string, unknown> = { app: "ordena", versao: 1, criadoEm: new Date().toISOString() };
+    BACKUP_KEYS.forEach(k => { data[k] = JSON.parse(localStorage.getItem(k) ?? "null"); });
+    try {
+      await openBlob(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }), `ordena-backup-${stamp()}.json`);
+      const now = new Date().toISOString();
+      localStorage.setItem(LAST_KEY, now);
+      setLast(now);
+    } catch { notify("Não foi possível gerar o backup."); }
+  };
+
+  const readFile = async (f: File | undefined) => {
+    if (!f) return;
+    try {
+      const data = JSON.parse(await f.text());
+      if (data?.app !== "ordena" || !Array.isArray(data["ordena-tasks"])) throw new Error();
+      setPending(data);
+      setMsg("");
+    } catch { setMsg("Esse arquivo não é um backup do Ordena."); }
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const restore = () => {
+    if (!pending) return;
+    BACKUP_KEYS.forEach(k => { if (pending[k] != null) localStorage.setItem(k, JSON.stringify(pending[k])); });
+    location.reload();
+  };
+
+  const exportPdf = () => openBlob(buildReport(tasks), `ordena-relatorio-${stamp()}.pdf`).catch(() => notify("Não foi possível gerar o PDF."));
 
   return (
     <div className="space-y-3">
-      {showPdf && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm">
-          <div className="w-full max-w-[390px] bg-slate-900 border border-slate-700 rounded-t-3xl p-5">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-slate-100 font-semibold text-sm">Relatório Analítico — Preview</p>
-              <button onClick={() => setShowPdf(false)}><X size={18} className="text-slate-400" /></button>
+      <div className={card} style={cardStyle}>
+        <p className="text-[13px] font-semibold mb-0.5" style={{ color: "var(--text)" }}>Backup</p>
+        <p className="text-[12px] mb-3" style={{ color: "var(--tertiary)" }}>
+          Gera um arquivo com suas tarefas, categorias, status, modelos e histórico. Salve no Google Drive para ter uma cópia na nuvem.
+          {last && <><br />Último backup: {new Date(last).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</>}
+        </p>
+        <button onClick={exportBackup} className={btn} style={{ background: "var(--accent)", color: "#fff" }}>
+          <Upload size={14} /> Fazer backup agora
+        </button>
+        <button onClick={() => fileRef.current?.click()} className={`${btn} mt-2`} style={{ background: "var(--sunken)", color: "var(--accent)", border: "1px solid var(--border)" }}>
+          <RefreshCw size={14} /> Restaurar de um backup
+        </button>
+        <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={e => readFile(e.target.files?.[0])} />
+        {pending && (
+          <div className="mt-3 p-3 rounded-xl text-[12px]" style={{ background: "var(--sunken)", border: "1px solid var(--border)", color: "var(--text)" }}>
+            Backup de {new Date(String(pending.criadoEm)).toLocaleString("pt-BR")} com {(pending["ordena-tasks"] as unknown[]).length} tarefas.
+            Restaurar substitui o que está no app agora.
+            <div className="flex gap-2 mt-2">
+              <button onClick={() => setPending(null)} className="px-3 py-1.5 rounded-lg" style={{ border: "1px solid var(--border)", color: "var(--sub)" }}>Cancelar</button>
+              <button onClick={restore} className="flex-1 py-1.5 rounded-lg font-semibold text-white" style={{ background: "var(--critical)" }}>Restaurar</button>
             </div>
-            <div className="bg-white rounded-xl p-4 text-slate-900 space-y-3">
-              <div className="border-b border-slate-200 pb-2">
-                <p className="text-sm font-bold">ORDENA — Relatório Executivo</p>
-                <p className="text-xs text-slate-500">Gerado em: {new Date().toLocaleDateString("pt-BR")}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-slate-700 mb-1">Resumo da Semana</p>
-                <p className="text-xs text-slate-500">Tarefas: {tasks.length} | Concluídas: {done.length} | Atrasadas: {tasks.filter(isOverdue).length}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-slate-700 mb-1">Tarefas Concluídas</p>
-                {done.length === 0 && <p className="text-xs text-slate-500">Nenhuma ainda.</p>}
-                {done.slice(0, 5).map(t => (
-                  <p key={t.id} className="text-xs text-slate-500">— {t.title}</p>
-                ))}
-              </div>
-            </div>
-            <button className="mt-3 w-full py-2.5 rounded-xl bg-indigo-500 text-white text-sm font-semibold">
-              ⬇ Baixar PDF
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className={`${card} border rounded-xl p-3`}>
-        <p className={`text-xs font-semibold ${text} mb-3`}>Backup em Nuvem</p>
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          {[
-            { name: "Google Drive", icon: "🔵", status: "Ativo", last: "Hoje, 07:00" },
-            { name: "Dropbox", icon: "📦", status: "Ativo", last: "Hoje, 07:00" },
-          ].map(b => (
-            <div key={b.name} className={`${isDark ? "bg-slate-700/50" : "bg-slate-100"} rounded-xl p-2.5`}>
-              <p className="text-sm mb-1">{b.icon}</p>
-              <p className={`text-xs font-medium ${text}`}>{b.name}</p>
-              <p className="text-[10px] text-emerald-400">{b.status}</p>
-              <p className={`text-[9px] ${sub}`}>{b.last}</p>
-            </div>
-          ))}
-        </div>
-        {backupOk && (
-          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2.5 py-2 mb-2 flex items-center gap-2">
-            <CheckCircle2 size={12} className="text-emerald-400" />
-            <span className="text-xs text-emerald-300">Backup concluído com sucesso! {tasks.length} tarefas, {new Set(tasks.map(t => t.project)).size} projetos.</span>
           </div>
         )}
-        <button onClick={runBackup}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-400 text-xs font-semibold hover:bg-blue-500/30 transition-colors">
-          <RefreshCw size={12} className={backing ? "animate-spin" : ""} />
-          {backing ? "Executando backup..." : "Executar Backup Imediato"}
-        </button>
+        {msg && <p className="text-[12px] mt-2" style={{ color: "var(--critical)" }}>{msg}</p>}
+        <p className="text-[11px] mt-2" style={{ color: "var(--tertiary)" }}>Os arquivos anexados (fotos, áudios) não vão no backup.</p>
       </div>
 
-      <button onClick={() => setShowPdf(true)}
-        className="w-full py-3 rounded-xl bg-[#4F6BED] hover:bg-[#3F5BD9] text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
-        <Download size={15} /> Exportar Relatório PDF
-      </button>
+      <div className={card} style={cardStyle}>
+        <p className="text-[13px] font-semibold mb-0.5" style={{ color: "var(--text)" }}>Relatório em PDF</p>
+        <p className="text-[12px] mb-3" style={{ color: "var(--tertiary)" }}>Resumo, atrasadas, tarefas em aberto por categoria e o que você concluiu na semana.</p>
+        <button onClick={exportPdf} className={btn} style={{ background: "var(--accent)", color: "#fff" }}>
+          <Download size={14} /> Exportar relatório PDF
+        </button>
+      </div>
     </div>
   );
 }
