@@ -18,6 +18,7 @@ Autor: Lucas Inácio de Carvalho
 - **Alertas de prazo:** notificações 1 dia, 2 horas e 30 minutos antes e um resumo diário.
 - **Arquivo, histórico e busca:** arquivar sem apagar, histórico das ações e busca que aceita erros de digitação.
 - **E-mail → tarefa:** colar um e-mail cria a tarefa com título e prazo.
+- **Mapa:** aba com as tarefas que têm local, sua posição e o raio de cada aviso. Tocar no mapa ou buscar um endereço cria uma tarefa com lembrete naquele lugar; cada tarefa tem rota no Google Maps.
 - **Lembrete por local:** marca um lugar na tarefa e avisa quando você chega perto (com o app aberto).
 - **Calendário:** sincroniza as tarefas em aberto com o calendário do Android (e com o Google Calendar pela conta Google do aparelho) e transforma eventos do calendário em tarefas.
 - **Agenda:** calendário mensal com setas para voltar e avançar o mês; os dias com tarefa ficam marcados e tocar num dia lista as tarefas com prazo nele; tocar numa tarefa abre o detalhe.
@@ -26,6 +27,8 @@ Autor: Lucas Inácio de Carvalho
 ## Tecnologias
 
 React 19, TypeScript, Vite, Tailwind CSS v4 e Capacitor (Android). Os dados ficam no armazenamento local do aparelho; os arquivos anexados ficam no IndexedDB do app.
+
+O mapa usa Leaflet com o mapa do OpenStreetMap (sem chave de API) e a busca de endereços do Nominatim; precisa de internet.
 
 Plugins do Capacitor: `@capacitor/geolocation` e `@capacitor/local-notifications` (lembrete por local), `@ebarooni/capacitor-calendar` (calendário do Android), `@capacitor/filesystem` e `@capacitor/share` (abrir anexos). O `AndroidManifest.xml` declara as permissões de localização, notificações, calendário, câmera e microfone; o Android pede cada uma na primeira vez que o recurso é usado.
 

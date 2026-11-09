@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
-  CheckSquare, Folder, Calendar, BarChart2, Settings, Sun, Moon, Monitor, Trash2, Pencil, ChevronLeft, ChevronRight, ArrowLeft, Plus, LogOut, MapPin, Repeat, AlertCircle, Link2, TrendingUp, Clock, Heart, Target, HardDrive, Wrench, Copy, Search, Moon as MoonIcon,
+  CheckSquare, Folder, Calendar, BarChart2, Settings, Sun, Moon, Monitor, Trash2, Pencil, ChevronLeft, ChevronRight, ArrowLeft, Plus, LogOut, MapPin, Repeat, AlertCircle, Link2, TrendingUp, Clock, Heart, Target, HardDrive, Wrench, Copy, Search, Moon as MoonIcon, Map as MapIcon,
 } from "lucide-react";
 import TarefasHome, { TaskCard, TaskDetailModal } from "./telas/tarefas";
 import {
@@ -11,6 +11,7 @@ import AuthFlow from "./telas/login";
 import { useLocationReminders } from "./nativo/lembretesLocal";
 import { useCalendarAutoSync } from "./nativo/calendario";
 import { useDeadlineAlerts } from "./nativo/alertasPrazo";
+import MapaScreen from "./telas/mapa";
 import {
   GpsSection, DupSection, CalSection,
   AlertsSection, SearchSection, RecurSection,
@@ -23,7 +24,7 @@ import {
 
 // ── Types ─────────────────────────────────────────────────────────
 
-type NavTab = "tarefas" | "projetos" | "agenda" | "analises" | "ajustes";
+type NavTab = "tarefas" | "projetos" | "agenda" | "mapa" | "analises" | "ajustes";
 type ThemeMode = "light" | "dark" | "system";
 
 // ── Theme hook ────────────────────────────────────────────────────
@@ -715,6 +716,7 @@ const NAV_ITEMS: { key: NavTab; label: string; Icon: React.ElementType }[] = [
   { key: "tarefas",  label: "Tarefas",  Icon: CheckSquare },
   { key: "projetos", label: "Projetos", Icon: Folder },
   { key: "agenda",   label: "Agenda",   Icon: Calendar },
+  { key: "mapa",     label: "Mapa",     Icon: MapIcon },
   { key: "analises", label: "Análises", Icon: BarChart2 },
   { key: "ajustes",  label: "Ajustes",  Icon: Settings },
 ];
@@ -858,6 +860,7 @@ export default function App() {
       case "tarefas":  return <TarefasScreen  theme={theme} />;
       case "projetos": return <ProjetosScreen  theme={theme} />;
       case "agenda":   return <AgendaScreen    theme={theme} />;
+      case "mapa":     return <MapaScreen      isDark={isDark} />;
       case "analises": return <AnalisesScreen  theme={theme} />;
       case "ajustes":  return (
         <AjustesScreen
